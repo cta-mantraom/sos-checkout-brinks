@@ -1,0 +1,312 @@
+{
+  "name": "SOS Checkout Brinks",
+  "version": "1.0.0",
+  "description": "Sistema de QR Code para emergências médicas - Checkout para motociclistas",
+  "project_type": "web-application",
+  "stack": {
+    "frontend": ["React", "Vite", "TypeScript", "Tailwind CSS"],
+    "backend": ["Vercel Functions", "Serverless"],
+    "payments": ["MercadoPago", "Payment Brick", "PIX"],
+    "database": ["Firebase Firestore"],
+    "tools": ["QRCode.js", "Zod", "DOMPurify", "React Hook Form"]
+  },
+  "agents": [
+    {
+      "name": "payment-checkout-specialist",
+      "path": ".claude/agents/payment-checkout-specialist.md",
+      "description": "Especialista em checkout e integração MercadoPago",
+      "triggers": ["payment", "checkout", "mercadopago", "pix", "webhook"],
+      "priority": "critical",
+      "responsibilities": [
+        "Implementar checkout com Payment Brick",
+        "Configurar Device ID obrigatório",
+        "Validar HMAC em webhooks",
+        "Processar pagamentos PIX",
+        "Garantir idempotência",
+        "Taxa de aprovação > 85%"
+      ]
+    },
+    {
+      "name": "medical-form-specialist",
+      "path": ".claude/agents/medical-form-specialist.md",
+      "description": "Especialista em formulários médicos e validação de dados",
+      "triggers": ["medical", "form", "cpf", "emergency", "qrcode"],
+      "priority": "critical",
+      "responsibilities": [
+        "Validar CPF com algoritmo completo",
+        "Sanitizar dados médicos",
+        "Garantir LGPD compliance",
+        "Gerar QR Code para emergências",
+        "Interface otimizada para emergências",
+        "Suporte offline obrigatório"
+      ]
+    }
+  ],
+  "hooks": [
+    {
+      "name": "payment-validation",
+      "path": ".claude/hooks/payment-validation.py",
+      "triggers": ["Edit", "Write", "MultiEdit"],
+      "patterns": ["**/payment*", "**/checkout*", "**/mercadopago*", "**/webhook*"],
+      "critical_checks": [
+        "Device ID presente",
+        "HMAC validation implementada",
+        "Valores dos planos corretos",
+        "PIX habilitado",
+        "Idempotency key presente"
+      ]
+    },
+    {
+      "name": "medical-data-validation",
+      "path": ".claude/hooks/medical-data-validation.py",
+      "triggers": ["Edit", "Write", "MultiEdit"],
+      "patterns": ["**/medical*", "**/form*", "**/profile*", "**/emergency*"],
+      "critical_checks": [
+        "CPF com validação algorítmica",
+        "Dados sanitizados com DOMPurify",
+        "LGPD compliance",
+        "Tipos sanguíneos válidos",
+        "Contato emergência obrigatório"
+      ]
+    },
+    {
+      "name": "typescript-validation",
+      "path": ".claude/hooks/typescript-validation.py",
+      "triggers": ["Edit", "Write", "MultiEdit"],
+      "patterns": ["**/*.ts", "**/*.tsx", "**/tsconfig.json"],
+      "critical_checks": [
+        "Sem uso de any",
+        "Sem @ts-ignore",
+        "Tipos explícitos",
+        "Strict mode ativo",
+        "Props tipadas"
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "name": "/payment-check",
+      "script": ".claude/commands/payment-check.sh",
+      "description": "Verifica implementação de pagamento MercadoPago",
+      "usage": "Execute para validar Device ID, HMAC, valores e PIX"
+    },
+    {
+      "name": "/medical-check",
+      "script": ".claude/commands/medical-check.sh",
+      "description": "Verifica formulários médicos e compliance LGPD",
+      "usage": "Execute para validar CPF, sanitização e dados médicos"
+    },
+    {
+      "name": "/deploy-check",
+      "script": ".claude/commands/deploy-check.sh",
+      "description": "Verifica se aplicação está pronta para deploy",
+      "usage": "Execute antes de fazer deploy para Vercel"
+    },
+    {
+      "name": "/status",
+      "script": ".claude/commands/status.sh",
+      "description": "Status rápido do projeto",
+      "usage": "Execute para visão geral do projeto"
+    }
+  ],
+  "critical_features": {
+    "payment": {
+      "device_id": {
+        "required": true,
+        "impact": "40% de redução na taxa de aprovação sem ele",
+        "implementation": "MP_DEVICE_SESSION_ID",
+        "location": "window global object"
+      },
+      "hmac_validation": {
+        "required": true,
+        "impact": "Risco de segurança crítico",
+        "implementation": "validateHMAC com header x-signature",
+        "always_return_200": true
+      },
+      "idempotency": {
+        "required": true,
+        "impact": "Risco de pagamentos duplicados",
+        "implementation": "X-Idempotency-Key header"
+      },
+      "prices": {
+        "basic": 5.00,
+        "premium": 10.00,
+        "currency": "BRL"
+      },
+      "pix": {
+        "enabled": true,
+        "polling_interval": 5000,
+        "expiration": 1800
+      }
+    },
+    "medical": {
+      "cpf_validation": {
+        "required": true,
+        "algorithm": "brazilian_full",
+        "mask": false,
+        "implementation": "validateCPF function"
+      },
+      "blood_types": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+      "sanitization": {
+        "required": true,
+        "library": "DOMPurify",
+        "applies_to": ["allergies", "medications", "additionalNotes"]
+      },
+      "lgpd_compliance": {
+        "consent_required": true,
+        "encryption_required": true,
+        "deletion_right": true,
+        "data_portability": true
+      }
+    },
+    "qrcode": {
+      "size": 300,
+      "error_correction": "H",
+      "margin": 4,
+      "format": "base64",
+      "download_enabled": true,
+      "colors": {
+        "dark": "#000000",
+        "light": "#FFFFFF"
+      }
+    },
+    "emergency_ui": {
+      "min_font_size": "16px",
+      "contrast": "WCAG-AAA",
+      "touch_target": "44px",
+      "load_time": "<2s",
+      "offline_mode": true
+    }
+  },
+  "validation_rules": {
+    "typescript": {
+      "strict": true,
+      "strictNullChecks": true,
+      "noImplicitAny": true,
+      "no_any": true,
+      "no_ts_ignore": true,
+      "no_ts_nocheck": true,
+      "explicit_return_types": true
+    },
+    "security": {
+      "no_console_log": true,
+      "no_hardcoded_secrets": true,
+      "https_only": true,
+      "rate_limiting": true,
+      "csp_enabled": true,
+      "cors_strict": true
+    },
+    "performance": {
+      "max_load_time": "2s",
+      "max_checkout_time": "120s",
+      "qr_generation": "<500ms",
+      "offline_support": true,
+      "lazy_loading": true
+    }
+  },
+  "development": {
+    "commands": {
+      "dev": "npm run dev",
+      "build": "npm run build",
+      "type_check": "npm run type-check",
+      "lint": "npm run lint",
+      "test": "npm test",
+      "check_all": "npm run check-all"
+    },
+    "ports": {
+      "dev": 5173,
+      "api": 3000
+    },
+    "hot_reload": true
+  },
+  "deployment": {
+    "platform": "Vercel",
+    "environments": ["development", "staging", "production"],
+    "environment_variables": [
+      "VITE_MP_PUBLIC_KEY",
+      "MP_ACCESS_TOKEN",
+      "WEBHOOK_SECRET",
+      "FIREBASE_API_KEY",
+      "FIREBASE_AUTH_DOMAIN",
+      "FIREBASE_PROJECT_ID",
+      "FIREBASE_STORAGE_BUCKET",
+      "FIREBASE_MESSAGING_SENDER_ID",
+      "FIREBASE_APP_ID"
+    ],
+    "pre_deploy_checklist": [
+      "Todos os testes passando",
+      "Build sem erros",
+      "TypeScript sem erros",
+      "Variáveis de ambiente configuradas",
+      "URL webhook atualizada no MercadoPago",
+      "Device fingerprinting ativo",
+      "Rate limiting configurado",
+      "HTTPS enforcement"
+    ]
+  },
+  "monitoring": {
+    "kpis": {
+      "conversion_rate": {
+        "target": ">60%",
+        "critical": "<40%"
+      },
+      "approval_rate": {
+        "target": ">85%",
+        "critical": "<70%"
+      },
+      "checkout_time": {
+        "target": "<2min",
+        "critical": ">5min"
+      },
+      "qr_load_time": {
+        "target": "<2s",
+        "critical": ">5s"
+      },
+      "uptime": {
+        "target": ">99.9%",
+        "critical": "<99%"
+      }
+    },
+    "tracking_events": [
+      "checkout_started",
+      "payment_method_selected",
+      "payment_completed",
+      "payment_failed",
+      "qr_generated",
+      "qr_downloaded"
+    ],
+    "alerts": {
+      "payment_failure": "critical",
+      "validation_error": "warning",
+      "performance_degradation": "warning",
+      "security_breach": "critical"
+    }
+  },
+  "compliance": {
+    "standards": ["LGPD", "PCI DSS", "WCAG AA"],
+    "data_retention": {
+      "payment_logs": "7 years",
+      "medical_data": "encrypted_storage",
+      "system_logs": "90 days"
+    },
+    "privacy": {
+      "anonymization": true,
+      "encryption_at_rest": true,
+      "encryption_in_transit": true
+    }
+  },
+  "documentation": {
+    "main": ".claude/CLAUDE.md",
+    "agents": ".claude/agents/",
+    "plans": ".claude/plans/",
+    "architecture": "docs/",
+    "api": "api/README.md",
+    "note": "Documentação do projeto está em docs/ na raiz, não em .claude/docs/"
+  },
+  "version_control": {
+    "main_branch": "main",
+    "branch_naming": "feature/[feature-name]",
+    "commit_style": "conventional",
+    "pr_template": true
+  }
+}
