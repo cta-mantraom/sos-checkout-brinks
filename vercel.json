@@ -1,12 +1,12 @@
 {
   "functions": {
-    "api/**/*.ts": {
+    "src/**/*.ts": {
       "maxDuration": 30
     }
   },
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!src/).*)",
       "destination": "/index.html"
     }
   ],
