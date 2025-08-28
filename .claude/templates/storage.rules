@@ -1,0 +1,219 @@
+rules_version = '2';
+
+// SOS Checkout Brinks - Storage Security Rules
+// Para QR Codes e arquivos médicos
+// Última atualização: 2025-08-28
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    // Verifica se usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Verifica se é o dono do recurso
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Verifica se é admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.role == 'admin';
+    }
+    
+    // Valida tipo de arquivo (imagem)
+    function isValidImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Valida tipo de arquivo (PDF)
+    function isValidPDF() {
+      return request.resource.contentType == 'application/pdf';
+    }
+    
+    // Valida tamanho do arquivo (max 5MB)
+    function isValidSize() {
+      return request.resource.size <= 5 * 1024 * 1024;
+    }
+    
+    // Valida tamanho para QR Code (max 1MB)
+    function isValidQRSize() {
+      return request.resource.size <= 1 * 1024 * 1024;
+    }
+    
+    // ========================================
+    // QR CODES - PÚBLICO PARA EMERGÊNCIAS
+    // ========================================
+    match /qr-codes/{qrCodeId} {
+      // LEITURA - Pública (emergência médica)
+      allow read: if true;
+      
+      // ESCRITA - Apenas backend via Admin SDK
+      allow write: if false;
+      
+      // Nota: QR Codes são gerados automaticamente
+      // após pagamento aprovado via Cloud Functions
+    }
+    
+    // ========================================
+    // QR CODES TEMPORÁRIOS - PARA DOWNLOAD
+    // ========================================
+    match /qr-codes-temp/{userId}/{qrCodeFile} {
+      // LEITURA - Apenas owner por 24h
+      allow read: if isOwner(userId);
+      
+      // ESCRITA - Apenas backend
+      allow write: if false;
+      
+      // Nota: Arquivos temporários são deletados
+      // automaticamente após 24h via Cloud Function
+    }
+    
+    // ========================================
+    // PROFILE PICTURES - PRIVADO
+    // ========================================
+    match /profiles/{userId}/avatar/{fileName} {
+      // LEITURA - Owner ou emergência
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // CRIAÇÃO - Owner, apenas imagens pequenas
+      allow create: if isOwner(userId) && 
+                       isValidImage() && 
+                       isValidSize();
+      
+      // ATUALIZAÇÃO - Owner, apenas imagens
+      allow update: if isOwner(userId) && 
+                       isValidImage() && 
+                       isValidSize();
+      
+      // EXCLUSÃO - Owner ou admin (LGPD)
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // ========================================
+    // DOCUMENTOS MÉDICOS - ALTAMENTE PRIVADO
+    // ========================================
+    match /medical-docs/{userId}/{document=**} {
+      // LEITURA - Apenas owner
+      allow read: if isOwner(userId);
+      
+      // CRIAÇÃO - Owner, PDF ou imagem, tamanho limitado
+      allow create: if isOwner(userId) && 
+                       (isValidPDF() || isValidImage()) && 
+                       isValidSize();
+      
+      // ATUALIZAÇÃO - Não permitido (imutável)
+      allow update: if false;
+      
+      // EXCLUSÃO - Owner ou admin (LGPD)
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // ========================================
+    // TERMOS E CONDIÇÕES - PÚBLICO
+    // ========================================
+    match /legal/{document} {
+      // LEITURA - Público
+      allow read: if true;
+      
+      // ESCRITA - Apenas admin
+      allow write: if isAdmin();
+    }
+    
+    // ========================================
+    // ASSETS DO SISTEMA - PÚBLICO
+    // ========================================
+    match /assets/{assetPath=**} {
+      // LEITURA - Público (logos, ícones, etc)
+      allow read: if true;
+      
+      // ESCRITA - Apenas admin
+      allow write: if isAdmin();
+    }
+    
+    // ========================================
+    // BACKUPS - APENAS ADMIN
+    // ========================================
+    match /backups/{backup=**} {
+      // LEITURA - Apenas admin
+      allow read: if isAdmin();
+      
+      // ESCRITA - Apenas backend/admin
+      allow write: if false;
+    }
+    
+    // ========================================
+    // LOGS DE AUDITORIA - APENAS ADMIN
+    // ========================================
+    match /audit-logs/{log=**} {
+      // LEITURA - Apenas admin
+      allow read: if isAdmin();
+      
+      // ESCRITA - Apenas backend
+      allow write: if false;
+    }
+    
+    // ========================================
+    // REGRA PADRÃO - NEGAR TUDO
+    // ========================================
+    match /{allPaths=**} {
+      // Negar qualquer acesso não especificado
+      allow read, write: if false;
+    }
+  }
+}
+
+// ========================================
+// ESTRUTURA DE PASTAS NO STORAGE
+// ========================================
+// /qr-codes/                    -> QR Codes públicos (emergência)
+//   ├── {qrCodeId}.png
+//
+// /qr-codes-temp/               -> QR Codes temporários para download
+//   ├── {userId}/
+//       ├── qr-{timestamp}.png
+//
+// /profiles/                    -> Dados privados do usuário
+//   ├── {userId}/
+//       ├── avatar/
+//           ├── profile.jpg
+//
+// /medical-docs/                -> Documentos médicos (LGPD)
+//   ├── {userId}/
+//       ├── exams/
+//       ├── prescriptions/
+//       ├── reports/
+//
+// /legal/                       -> Documentos legais públicos
+//   ├── terms.pdf
+//   ├── privacy.pdf
+//   ├── lgpd.pdf
+//
+// /assets/                      -> Assets públicos do sistema
+//   ├── logos/
+//   ├── icons/
+//   ├── images/
+//
+// /backups/                     -> Backups do sistema (admin only)
+//   ├── {date}/
+//
+// /audit-logs/                  -> Logs de auditoria (compliance)
+//   ├── {year}/
+//       ├── {month}/
+
+// ========================================
+// NOTAS DE SEGURANÇA
+// ========================================
+// 1. QR Codes devem ser SEMPRE públicos (emergência)
+// 2. Documentos médicos são EXTREMAMENTE sensíveis
+// 3. Implementar lifecycle rules para deletar temporários
+// 4. Backups automáticos diários obrigatórios
+// 5. Logs de acesso para compliance LGPD
+// 6. Criptografar documentos médicos antes do upload
+// 7. Limitar tamanho de arquivos para controlar custos

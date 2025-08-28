@@ -40,6 +40,21 @@
         "Interface otimizada para emergências",
         "Suporte offline obrigatório"
       ]
+    },
+    {
+      "name": "firebase-config-agent",
+      "path": ".claude/agents/firebase-config-agent.md",
+      "description": "Especialista em configuração, deploy e manutenção do Firebase com type safety absoluta",
+      "triggers": ["firebase", "firestore", "deploy", "rules", "indexes", "any"],
+      "priority": "critical",
+      "responsibilities": [
+        "Configurar Firebase (firestore.rules, indexes, storage)",
+        "ZERO uso de any ou unknown",
+        "Deploy seguro com validação prévia",
+        "Implementar regras de segurança LGPD",
+        "Otimizar índices para queries",
+        "Validar todos dados com Zod"
+      ]
     }
   ],
   "hooks": [

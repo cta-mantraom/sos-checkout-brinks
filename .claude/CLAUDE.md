@@ -1,5 +1,21 @@
 # SOS Checkout Brinks - Sistema de QR Code para Emergências Médicas
 
+## ⚠️ REGRAS UNIVERSAIS OBRIGATÓRIAS
+**TODOS OS AGENTES DEVEM LER**: 
+1. `.claude/UNIVERSAL_AGENT_RULES.md` - Regras fundamentais
+2. `.claude/CONFIG_ARCHITECTURE.md` - Arquitetura de configuração desacoplada
+
+### Regras Inegociáveis:
+- ❌ **NUNCA** usar `any` - PROIBIDO SEMPRE (não existe "any com validação")
+- ❌ **`unknown` APENAS** para dados externos - validar IMEDIATAMENTE com Zod
+- ❌ **NUNCA** criar testes em nenhuma parte do código
+- ❌ **NUNCA** implementar checkout customizado
+- ❌ **NUNCA** acessar `process.env` diretamente - usar configs desacopladas
+- ✅ **SEMPRE** usar Payment Brick do MercadoPago
+- ✅ **SEMPRE** validar tudo com Zod primeiro
+- ✅ **SEMPRE** usar lazy loading para configurações
+- 🧠 **THINKING BUDGETS** - "Pensar mais ao fundo", "ultra think"
+
 ## 🎯 MISSÃO CRÍTICA
 Desenvolver um sistema de checkout robusto para venda de QR Codes de emergência médica para motociclistas. Cada código pode salvar uma vida, portanto QUALIDADE e CONFIABILIDADE são inegociáveis.
 

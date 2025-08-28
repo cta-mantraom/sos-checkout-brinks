@@ -1,0 +1,194 @@
+rules_version = '2';
+
+// SOS Checkout Brinks - Firestore Security Rules
+// LGPD Compliance + Type Safety
+// Última atualização: 2025-08-28
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    // Verifica se usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Verifica se é o dono do recurso
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Verifica se tem role de admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.role == 'admin';
+    }
+    
+    // Verifica se tem QR Code válido para emergência
+    function hasEmergencyAccess(qrCode) {
+      return isAuthenticated() && 
+             request.auth.token.emergencyQR == qrCode;
+    }
+    
+    // Valida se é um plano válido
+    function isValidPlan(plan) {
+      return plan in ['basic', 'premium'];
+    }
+    
+    // Valida tipo sanguíneo
+    function isValidBloodType(bloodType) {
+      return bloodType in ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    }
+    
+    // Valida se CPF tem 11 dígitos (criptografado será maior)
+    function isValidCPF(cpf) {
+      return cpf.size() >= 11;
+    }
+    
+    // Verifica campos obrigatórios do perfil médico
+    function hasRequiredMedicalFields() {
+      return request.resource.data.keys().hasAll([
+        'fullName', 'cpf', 'bloodType', 'emergencyContact'
+      ]);
+    }
+    
+    // Verifica campos obrigatórios do pagamento
+    function hasRequiredPaymentFields() {
+      return request.resource.data.keys().hasAll([
+        'amount', 'planType', 'deviceId', 'userId'
+      ]);
+    }
+    
+    // ========================================
+    // MEDICAL PROFILES - DADOS MÉDICOS CRÍTICOS
+    // ========================================
+    match /medical_profiles/{profileId} {
+      
+      // LEITURA - Owner ou Emergência com QR válido
+      allow read: if isOwner(resource.data.userId) ||
+                     hasEmergencyAccess(resource.data.qrCodeId) ||
+                     isAdmin();
+      
+      // CRIAÇÃO - Usuário autenticado criando seu próprio perfil
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == request.resource.data.userId &&
+                       hasRequiredMedicalFields() &&
+                       isValidBloodType(request.resource.data.bloodType) &&
+                       isValidCPF(request.resource.data.cpf);
+      
+      // ATUALIZAÇÃO - Apenas owner, não pode mudar userId
+      allow update: if isOwner(resource.data.userId) &&
+                       request.resource.data.userId == resource.data.userId &&
+                       hasRequiredMedicalFields() &&
+                       isValidBloodType(request.resource.data.bloodType);
+      
+      // EXCLUSÃO - Owner ou admin (LGPD compliance)
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    
+    // ========================================
+    // PAYMENTS - DADOS FINANCEIROS SENSÍVEIS
+    // ========================================
+    match /payments/{paymentId} {
+      
+      // LEITURA - Apenas owner ou admin
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      
+      // ESCRITA - Apenas backend (Functions com Admin SDK)
+      allow write: if false;
+      
+      // Nota: Pagamentos são criados apenas via Cloud Functions
+      // após validação do MercadoPago webhook
+    }
+    
+    // ========================================
+    // QR CODES - PÚBLICO PARA EMERGÊNCIAS
+    // ========================================
+    match /qr_codes/{qrCodeId} {
+      
+      // LEITURA - Pública (emergência médica não pode ter barreiras)
+      allow read: if true;
+      
+      // ESCRITA - Apenas backend
+      allow write: if false;
+      
+      // Nota: QR Codes são gerados automaticamente após
+      // pagamento aprovado via Cloud Functions
+    }
+    
+    // ========================================
+    // WEBHOOKS - LOGS DE AUDITORIA
+    // ========================================
+    match /webhooks/{webhookId} {
+      
+      // LEITURA - Apenas admin para debugging
+      allow read: if isAdmin();
+      
+      // ESCRITA - Apenas backend
+      allow write: if false;
+    }
+    
+    // ========================================
+    // LGPD DELETIONS - COMPLIANCE LOG
+    // ========================================
+    match /lgpd_deletions/{deletionId} {
+      
+      // LEITURA - Apenas admin (auditoria)
+      allow read: if isAdmin();
+      
+      // ESCRITA - Apenas backend (automático ao deletar perfil)
+      allow write: if false;
+    }
+    
+    // ========================================
+    // EMERGENCY ACCESS LOGS - RASTREABILIDADE
+    // ========================================
+    match /emergency_access_logs/{logId} {
+      
+      // LEITURA - Owner do perfil ou admin
+      allow read: if isOwner(resource.data.profileUserId) || isAdmin();
+      
+      // ESCRITA - Apenas backend (log automático)
+      allow write: if false;
+    }
+    
+    // ========================================
+    // USER SETTINGS - PREFERÊNCIAS
+    // ========================================
+    match /user_settings/{userId} {
+      
+      // LEITURA - Apenas owner
+      allow read: if isOwner(userId);
+      
+      // ESCRITA - Apenas owner
+      allow write: if isOwner(userId) &&
+                      request.resource.data.keys().hasAll(['notifications', 'privacy']);
+    }
+    
+    // ========================================
+    // SYSTEM CONFIG - CONFIGURAÇÕES GLOBAIS
+    // ========================================
+    match /system_config/{configId} {
+      
+      // LEITURA - Pública (preços, termos, etc)
+      allow read: if true;
+      
+      // ESCRITA - Apenas admin
+      allow write: if isAdmin();
+    }
+  }
+}
+
+// ========================================
+// NOTAS DE SEGURANÇA
+// ========================================
+// 1. Dados médicos são EXTREMAMENTE sensíveis - LGPD
+// 2. QR Codes devem ser públicos para emergências
+// 3. Pagamentos apenas via backend (PCI compliance)
+// 4. Todos os writes críticos via Cloud Functions
+// 5. Logs de auditoria para compliance
+// 6. CPF sempre criptografado antes de salvar
+// 7. Device ID obrigatório para pagamentos (MercadoPago)
