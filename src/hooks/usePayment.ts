@@ -160,9 +160,17 @@ export function useMercadoPagoBrick() {
       throw new Error('MercadoPago SDK não foi carregado');
     }
 
+    const publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
+    if (!publicKey || publicKey === 'YOUR_MERCADOPAGO_PUBLIC_KEY_HERE') {
+      console.error('MercadoPago Public Key não configurada. Verifique o arquivo .env');
+      throw new Error('MercadoPago Public Key não configurada. Configure VITE_MERCADOPAGO_PUBLIC_KEY no arquivo .env');
+    }
+
     try {
+      console.log('Inicializando MercadoPago Brick com containerId:', containerId);
+      
       const mp = new window.MercadoPago(
-        import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY,
+        publicKey,
         {
           locale: 'pt-BR'
         }
@@ -196,9 +204,13 @@ export function useMercadoPagoBrick() {
         callbacks: options.callbacks,
       });
 
+      console.log('MercadoPago Brick inicializado com sucesso');
       return brick;
     } catch (error) {
       console.error('Erro ao inicializar MercadoPago Brick:', error);
+      if (error instanceof Error && error.message.includes('container_not_found')) {
+        throw new Error(`Container '${containerId}' não encontrado no DOM. Verifique se o elemento existe.`);
+      }
       throw error;
     }
   };

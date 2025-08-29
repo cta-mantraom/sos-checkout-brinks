@@ -89,6 +89,22 @@ export function PaymentBrick({
         setIsLoading(true);
         setError(null);
 
+        // Aguardar o container estar disponível no DOM
+        const waitForContainer = async (id: string, maxAttempts = 10): Promise<boolean> => {
+          for (let i = 0; i < maxAttempts; i++) {
+            if (document.getElementById(id)) {
+              return true;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          return false;
+        };
+
+        const containerExists = await waitForContainer(containerId);
+        if (!containerExists) {
+          throw new Error('Container do Payment Brick não foi encontrado');
+        }
+
         const brickOptions = {
           initialization: {
             amount: amount,
@@ -307,21 +323,26 @@ export function PaymentBrick({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center space-y-4">
-                <LoadingSpinner size="lg" />
-                <p className="text-sm text-muted-foreground">
-                  Carregando formulário de pagamento...
-                </p>
+          <div className="relative">
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                <div className="text-center space-y-4">
+                  <LoadingSpinner size="lg" />
+                  <p className="text-sm text-muted-foreground">
+                    Carregando formulário de pagamento...
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : (
+            )}
             <div 
               id={containerId}
-              className={cn("min-h-[400px]", { "opacity-50 pointer-events-none": disabled })}
+              className={cn(
+                "min-h-[400px]",
+                { "opacity-0": isLoading },
+                { "opacity-50 pointer-events-none": disabled }
+              )}
             />
-          )}
+          </div>
         </CardContent>
       </Card>
 
