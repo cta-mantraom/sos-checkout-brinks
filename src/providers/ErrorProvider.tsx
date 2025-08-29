@@ -98,7 +98,7 @@ function RouteErrorFallback({ error, resetError }: { error: Error; resetError: (
 export function ErrorProvider({ children }: ErrorProviderProps) {
   const [globalError, setGlobalError] = React.useState<Error | null>(null);
 
-  const reportError = React.useCallback((error: Error, errorInfo?: Record<string, unknown>) => {
+  const reportError = React.useCallback((error: Error, errorInfo?: React.ErrorInfo) => {
     console.error('Erro reportado:', error, errorInfo);
     
     // Aqui você pode integrar com serviços de monitoramento
@@ -157,7 +157,7 @@ export function ErrorProvider({ children }: ErrorProviderProps) {
         ? event.reason 
         : new Error(String(event.reason));
       
-      reportError(error, { type: 'unhandledRejection' });
+      reportError(error, { componentStack: '' });
       
       // Prevenir que o erro apareça no console
       event.preventDefault();
@@ -171,10 +171,7 @@ export function ErrorProvider({ children }: ErrorProviderProps) {
         : new Error(event.message);
       
       reportError(error, { 
-        type: 'globalError',
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno 
+        componentStack: `${event.filename}:${event.lineno}:${event.colno}`
       });
     };
 
@@ -237,13 +234,13 @@ export function withErrorHandling<P extends object>(
   Component: React.ComponentType<P>,
   componentName?: string
 ) {
-  const WrappedComponent = React.forwardRef<any, P>((props, ref) => (
+  const WrappedComponent = React.forwardRef<unknown, P>((props, ref) => (
     <ErrorBoundary 
       onError={(error, errorInfo) => {
         console.error(`Erro em ${componentName || Component.name}:`, error, errorInfo);
       }}
     >
-      <Component ref={ref} {...props} />
+      <Component {...props as P} ref={ref as React.Ref<unknown>} />
     </ErrorBoundary>
   ));
 

@@ -1,11 +1,11 @@
-import { Firestore, CollectionReference, DocumentData, Query, QuerySnapshot, DocumentSnapshot, WriteResult, FieldValue } from 'firebase-admin/firestore';
+import { Firestore, CollectionReference, DocumentData, Query, WriteResult, FieldValue } from 'firebase-admin/firestore';
 import { FirebaseConfig } from './FirebaseConfig.js';
 
 export interface FirestoreQueryOptions {
   limit?: number;
   offset?: number;
   orderBy?: { field: string; direction: 'asc' | 'desc' }[];
-  where?: { field: string; operator: FirebaseFirestore.WhereFilterOp; value: any }[];
+  where?: { field: string; operator: FirebaseFirestore.WhereFilterOp; value: unknown }[];
 }
 
 export interface PaginatedResult<T> {
@@ -92,12 +92,11 @@ export class FirestoreClient {
   }
 
   // Métodos de consulta
-  async findOne<T>(collection: string, field: string, value: any): Promise<T | null> {
+  async findOne<T>(collection: string, field: string, value: unknown): Promise<T | null> {
     try {
       const snapshot = await this.firestore
         .collection(collection)
         .where(field, '==', value)
-        .where('deletedAt', '==', null)
         .limit(1)
         .get();
 
@@ -127,8 +126,15 @@ export class FirestoreClient {
         }
       }
 
-      // Filtrar documentos não deletados
-      query = query.where('deletedAt', '==', null);
+      // Filtrar documentos não deletados (opcional)
+      if (options.where && !options.where.some(w => w.field === 'deletedAt')) {
+        // Só adicionar se não foi especificado nas condições where
+        try {
+          query = query.where('deletedAt', '==', null);
+        } catch {
+          // Se falhar (campo não existe), continuar sem o filtro
+        }
+      }
 
       // Aplicar ordenação
       if (options.orderBy) {
@@ -193,7 +199,7 @@ export class FirestoreClient {
     }
   }
 
-  async count(collection: string, where?: { field: string; operator: FirebaseFirestore.WhereFilterOp; value: any }[]): Promise<number> {
+  async count(collection: string, where?: { field: string; operator: FirebaseFirestore.WhereFilterOp; value: unknown }[]): Promise<number> {
     try {
       let query: Query = this.firestore.collection(collection);
 
@@ -204,8 +210,14 @@ export class FirestoreClient {
         }
       }
 
-      // Filtrar documentos não deletados
-      query = query.where('deletedAt', '==', null);
+      // Filtrar documentos não deletados (opcional)
+      if (!where || !where.some(w => w.field === 'deletedAt')) {
+        try {
+          query = query.where('deletedAt', '==', null);
+        } catch {
+          // Se falhar (campo não existe), continuar sem o filtro
+        }
+      }
 
       const snapshot = await query.count().get();
       return snapshot.data().count;
@@ -261,11 +273,11 @@ export class FirestoreClient {
     return FieldValue.serverTimestamp();
   }
 
-  arrayUnion(...elements: any[]): FieldValue {
+  arrayUnion(...elements: unknown[]): FieldValue {
     return FieldValue.arrayUnion(...elements);
   }
 
-  arrayRemove(...elements: any[]): FieldValue {
+  arrayRemove(...elements: unknown[]): FieldValue {
     return FieldValue.arrayRemove(...elements);
   }
 

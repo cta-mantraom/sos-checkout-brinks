@@ -5,6 +5,57 @@ import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_CONFIGS } from './_u
 import { logger } from '../lib/shared/utils/logger.js';
 import { ValidationError, ProfileError } from '../lib/domain/errors.js';
 
+interface ProfileResponseData {
+  id: string;
+  fullName: string;
+  cpf?: string;
+  email?: string;
+  phone?: string;
+  bloodType: string;
+  emergencyContact: {
+    name: string;
+    phone: string;
+    relationship: string;
+  };
+  medicalInfo?: {
+    allergies?: string[];
+    medications?: string[];
+    conditions?: string[];
+    observations?: string;
+  };
+  subscriptionPlan: string;
+  paymentStatus?: string;
+  qrCodeUrl?: string;
+  
+  // Status e capacidades
+  hasValidSubscription: boolean;
+  canGenerateQRCode: boolean;
+  canAccessPremiumFeatures?: boolean;
+  
+  // Datas
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt?: Date;
+  
+  // Dados opcionais
+  qrData?: unknown;
+  qrError?: string;
+  qrCodeValid?: boolean;
+  payments?: Array<{
+    id: string;
+    amount: number;
+    status: string;
+    paymentMethod: string;
+    externalId?: string;
+    createdAt: Date;
+    updatedAt: Date;
+    isPending: boolean;
+    isSuccessful: boolean;
+    isFailed: boolean;
+  }>;
+  paymentError?: string;
+}
+
 export default async function handler(req: NextRequest) {
   const startTime = Date.now();
   const identifier = getRateLimitIdentifier(req);
@@ -122,7 +173,7 @@ export default async function handler(req: NextRequest) {
     }
 
     // Preparar dados de resposta baseado no formato
-    let responseData: any = {};
+    let responseData: Partial<ProfileResponseData> = {};
 
     if (format === 'qr-only') {
       // Apenas dados essenciais para QR Code

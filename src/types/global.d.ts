@@ -1,8 +1,34 @@
 // Global type declarations for the SOS Checkout application
 
+// MercadoPago SDK interfaces
+interface MercadoPagoCardFormOptions {
+  amount: number;
+  autoMount?: boolean;
+  processingMode?: 'aggregator' | 'gateway';
+}
+
+interface MercadoPagoBrick {
+  mount: (containerId: string) => void;
+  unmount: () => void;
+  update: (data: Record<string, unknown>) => void;
+}
+
+interface MercadoPagoBricksBuilder {
+  create: (type: 'payment' | 'wallet' | 'cardForm', containerId: string, options: Record<string, unknown>) => Promise<MercadoPagoBrick>;
+}
+
+interface MercadoPagoInstance {
+  bricks: () => MercadoPagoBricksBuilder;
+  checkout: (options: Record<string, unknown>) => void;
+}
+
+interface MercadoPagoConstructor {
+  new (publicKey: string, options?: { locale?: string }): MercadoPagoInstance;
+}
+
 declare global {
   interface Window {
-    MercadoPago: any;
+    MercadoPago: MercadoPagoConstructor;
   }
 }
 
@@ -48,19 +74,19 @@ declare global {
 export interface ApiError extends Error {
   status?: number;
   statusText?: string;
-  data?: any;
+  data?: unknown;
 }
 
 export interface ValidationError extends Error {
   field?: string;
-  value?: any;
+  value?: unknown;
 }
 
 // Payment related types
 export interface PaymentError extends Error {
   code?: string;
   status?: 'rejected' | 'cancelled' | 'error';
-  details?: any;
+  details?: unknown;
 }
 
 // QR Code related types  
@@ -109,7 +135,7 @@ export const QUERY_KEYS = {
 export type QueryKey = typeof QUERY_KEYS[keyof typeof QUERY_KEYS];
 
 // API Response wrapper
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data: T;
   message?: string;
   success: boolean;

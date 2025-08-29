@@ -328,7 +328,7 @@ export const devUtils = {
     cpf: '123.456.789-01', // Fixed test CPF
     phone: `(11) ${Math.floor(Math.random() * 90000 + 10000)}-${Math.floor(Math.random() * 9000 + 1000)}`,
     birthDate: '1990-01-01',
-    bloodType: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'][Math.floor(Math.random() * 8)] as any,
+    bloodType: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'][Math.floor(Math.random() * 8)] as 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-',
     weight: Math.floor(Math.random() * 80 + 50),
     height: Math.floor(Math.random() * 40 + 160),
     hasAllergies: false,

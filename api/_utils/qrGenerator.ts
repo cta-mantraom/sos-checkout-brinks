@@ -1,4 +1,4 @@
-import QRCode from 'qrcode';
+import * as QRCode from 'qrcode';
 import { IQRCodeGenerator } from '../../lib/domain/services/QRCodeService.js';
 
 export class SimpleQRCodeGenerator implements IQRCodeGenerator {
@@ -32,7 +32,7 @@ export class SimpleQRCodeGenerator implements IQRCodeGenerator {
     }
   }
 
-  async uploadQRImage(imageData: string, profileId: string): Promise<string> {
+  async uploadQRImage(imageData: string, _profileId: string): Promise<string> {
     // Para simplicidade, vamos retornar uma URL de data
     // Em produção, você faria upload para um storage service (AWS S3, Cloudinary, etc.)
     
@@ -40,8 +40,8 @@ export class SimpleQRCodeGenerator implements IQRCodeGenerator {
       const dataUrl = `data:image/png;base64,${imageData}`;
       
       // Simular upload retornando uma URL única
-      const timestamp = Date.now();
-      const mockUrl = `https://sos-storage.exemplo.com/qrcodes/${profileId}-${timestamp}.png`;
+      // const timestamp = Date.now();
+      // const mockUrl = `https://sos-storage.exemplo.com/qrcodes/${profileId}-${timestamp}.png`;
       
       // Em produção, aqui você faria:
       // const uploadResult = await this.storageService.upload(imageData, `qrcodes/${profileId}-${timestamp}.png`);

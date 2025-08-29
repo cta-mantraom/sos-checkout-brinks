@@ -1,5 +1,4 @@
 import { MedicalProfile, CreateMedicalProfileProps } from '../entities/MedicalProfile.js';
-import { User } from '../entities/User.js';
 import { Subscription } from '../entities/Subscription.js';
 import { ProfileError } from '../errors/ProfileError.js';
 import { ValidationError } from '../errors/ValidationError.js';
@@ -90,8 +89,9 @@ export class ProfileService implements IProfileService {
     
     // Preservar dados que não podem ser alterados via update
     newProfile.updatePaymentStatus(profile.getPaymentStatus());
-    if (profile.getQRCodeUrl()) {
-      newProfile.setQRCodeUrl(profile.getQRCodeUrl());
+    const qrCodeUrl = profile.getQRCodeUrl();
+    if (qrCodeUrl) {
+      newProfile.setQRCodeUrl(qrCodeUrl);
     }
 
     await this.profileRepository.update(newProfile);

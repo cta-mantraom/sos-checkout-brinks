@@ -303,7 +303,7 @@ export function validateRelationship(relationship: string): boolean {
 /**
  * Validate form completeness
  */
-export function validateFormCompleteness<T extends Record<string, any>>(
+export function validateFormCompleteness<T extends Record<string, unknown>>(
   data: T,
   requiredFields: (keyof T)[]
 ): { isComplete: boolean; missingFields: string[] } {

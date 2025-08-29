@@ -67,6 +67,7 @@ interface LoadingButtonProps {
   className?: string;
   disabled?: boolean;
   onClick?: () => void;
+  type?: "button" | "submit" | "reset";
 }
 
 export function LoadingButton({ 
@@ -75,10 +76,12 @@ export function LoadingButton({
   loadingText = "Carregando...",
   className,
   disabled,
-  onClick 
+  onClick,
+  type = "button"
 }: LoadingButtonProps) {
   return (
     <button
+      type={type}
       className={cn(
         "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2",
         className
@@ -141,6 +144,32 @@ export function FormLoadingStates({ state, className }: FormLoadingStatesProps) 
       <span className={cn("text-sm", config.color)}>
         {config.message}
       </span>
+    </div>
+  );
+}
+
+// Componente para exibir erros
+interface LoadingErrorProps {
+  error: Error;
+  onRetry?: () => void;
+  className?: string;
+}
+
+export function LoadingError({ error, onRetry, className }: LoadingErrorProps) {
+  return (
+    <div className={cn(
+      "flex flex-col items-center justify-center p-8 rounded-lg border bg-card",
+      className
+    )}>
+      <p className="text-destructive mb-4 text-center">{error.message}</p>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+        >
+          Tentar Novamente
+        </button>
+      )}
     </div>
   );
 }

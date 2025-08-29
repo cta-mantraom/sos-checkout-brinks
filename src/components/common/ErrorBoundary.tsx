@@ -131,7 +131,7 @@ export function withErrorBoundary<P extends object>(
 
 // Hook para reportar erros manualmente
 export function useErrorHandler() {
-  return (error: Error, errorInfo?: any) => {
+  return (error: Error, errorInfo?: Record<string, unknown>) => {
     console.error('Erro capturado manualmente:', error, errorInfo);
     
     // Aqui você poderia enviar para um serviço de monitoramento

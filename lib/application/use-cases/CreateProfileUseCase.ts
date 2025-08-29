@@ -1,4 +1,4 @@
-import { MedicalProfile } from '../../domain/entities/MedicalProfile.js';
+import { MedicalProfile, CreateMedicalProfileProps } from '../../domain/entities/MedicalProfile.js';
 import { IProfileService } from '../../domain/services/ProfileService.js';
 import { CreateProfileDTO, CreateProfileData } from '../dto/CreateProfileDTO.js';
 
@@ -18,8 +18,24 @@ export class CreateProfileUseCase {
       // Validar e limpar dados
       const validatedData: CreateProfileData = CreateProfileDTO.validateAndClean(data);
 
+      // Mapear para CreateMedicalProfileProps
+      const profileProps: CreateMedicalProfileProps = {
+        fullName: validatedData.fullName,
+        cpf: validatedData.cpf,
+        phone: validatedData.phone,
+        email: validatedData.email,
+        bloodType: validatedData.bloodType,
+        emergencyContact: {
+          name: validatedData.emergencyContact.name,
+          phone: validatedData.emergencyContact.phone,
+          relationship: validatedData.emergencyContact.relationship
+        },
+        medicalInfo: validatedData.medicalInfo,
+        subscriptionPlan: validatedData.subscriptionPlan
+      };
+
       // Criar perfil através do serviço
-      const profile = await this.profileService.createProfile(validatedData, userId);
+      const profile = await this.profileService.createProfile(profileProps, userId);
 
       return {
         profile,

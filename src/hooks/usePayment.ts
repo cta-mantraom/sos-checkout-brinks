@@ -30,11 +30,7 @@ interface PaymentResponse {
 }
 
 
-declare global {
-  interface Window {
-    MercadoPago: any;
-  }
-}
+// MercadoPago interfaces estão definidas em src/types/global.d.ts
 
 async function processPayment(data: PaymentData): Promise<PaymentResponse> {
   const response = await fetch('/api/process-payment', {
@@ -69,9 +65,11 @@ export function usePayment(paymentId?: string) {
     queryKey: ['payment', paymentId],
     queryFn: () => getPaymentStatus(paymentId!),
     enabled: !!paymentId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Continua polling se o pagamento estiver pendente
-      return data?.data?.status === 'pending' ? 5000 : false;
+      const response = query.state.data;
+      if (!response) return false;
+      return response.status === 'pending' ? 5000 : false;
     },
     staleTime: 0, // Sempre buscar status atualizado
     retry: 3,
@@ -129,9 +127,35 @@ export function usePaymentCalculations() {
   };
 }
 
+// Interface para opções do brick
+interface BrickOptions {
+  initialization: {
+    amount: number;
+    preferenceId?: string | null;
+  };
+  customization?: {
+    paymentMethods?: {
+      creditCard?: string;
+      debitCard?: string;
+      ticket?: string;
+      bankTransfer?: string;
+    };
+    visual?: {
+      style?: {
+        customVariables?: Record<string, string>;
+      };
+    };
+  };
+  callbacks: {
+    onReady: () => void;
+    onSubmit: (data: unknown) => Promise<unknown>;
+    onError: (error: { message?: string }) => void;
+  };
+}
+
 // Hook para MercadoPago Brick
 export function useMercadoPagoBrick() {
-  const initializeBrick = async (containerId: string, options: any) => {
+  const initializeBrick = async (containerId: string, options: BrickOptions) => {
     if (!window.MercadoPago) {
       throw new Error('MercadoPago SDK não foi carregado');
     }
@@ -192,7 +216,7 @@ export function useCheckoutState() {
     queryClient.removeQueries({ queryKey: ['checkout'] });
   };
 
-  const setCheckoutData = (data: any) => {
+  const setCheckoutData = (data: unknown) => {
     queryClient.setQueryData(['checkout'], data);
   };
 

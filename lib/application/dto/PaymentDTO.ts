@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-// Schema para criar pagamento
-const CreatePaymentSchema = z.object({
+// Schema base sem validações condicionais
+const CreatePaymentSchemaBase = z.object({
   profileId: z.string()
     .min(1, 'ID do perfil é obrigatório')
     .regex(/^profile_\d+_[a-z0-9]+$/, 'Formato de ID do perfil inválido'),
@@ -41,7 +41,10 @@ const CreatePaymentSchema = z.object({
       number: z.string().min(11, 'CPF deve ter pelo menos 11 dígitos')
     }).optional()
   }).optional()
-}).refine((data) => {
+});
+
+// Schema com validações condicionais
+const CreatePaymentSchema = CreatePaymentSchemaBase.refine((data) => {
   // Validação condicional: cartão precisa de token
   if (['credit_card', 'debit_card'].includes(data.paymentMethod) && !data.token) {
     return false;
@@ -136,7 +139,7 @@ export class PaymentDTO {
   // Métodos utilitários
   static validateAmount(amount: number): boolean {
     try {
-      CreatePaymentSchema.shape.amount.parse(amount);
+      CreatePaymentSchemaBase.shape.amount.parse(amount);
       return true;
     } catch {
       return false;
@@ -145,7 +148,7 @@ export class PaymentDTO {
 
   static validatePaymentMethod(method: string): boolean {
     try {
-      CreatePaymentSchema.shape.paymentMethod.parse(method);
+      CreatePaymentSchemaBase.shape.paymentMethod.parse(method);
       return true;
     } catch {
       return false;
@@ -154,7 +157,7 @@ export class PaymentDTO {
 
   static validateInstallments(installments: number, paymentMethod: string): boolean {
     try {
-      const parsed = CreatePaymentSchema.parse({
+      CreatePaymentSchema.parse({
         profileId: 'profile_123_abc',
         amount: 100,
         paymentMethodId: 'test',
@@ -168,12 +171,13 @@ export class PaymentDTO {
   }
 
   // Método para limpar dados antes da validação
-  static clean(data: any): any {
+  static clean(data: unknown): unknown {
     if (typeof data !== 'object' || data === null) {
       return data;
     }
 
-    const cleaned = { ...data };
+    const input = data as Record<string, unknown>;
+    const cleaned = { ...input };
 
     // Converter amount para número se for string
     if (typeof cleaned.amount === 'string') {
@@ -192,13 +196,15 @@ export class PaymentDTO {
     }
 
     // Limpar email do pagador
-    if (cleaned.payer?.email) {
-      cleaned.payer.email = cleaned.payer.email.toLowerCase().trim();
+    const payer = cleaned.payer as Record<string, unknown> | undefined;
+    if (payer?.email && typeof payer.email === 'string') {
+      payer.email = payer.email.toLowerCase().trim();
     }
 
     // Limpar CPF/CNPJ
-    if (cleaned.payer?.identification?.number) {
-      cleaned.payer.identification.number = cleaned.payer.identification.number.replace(/\D/g, '');
+    const identification = payer?.identification as Record<string, unknown> | undefined;
+    if (identification?.number && typeof identification.number === 'string') {
+      identification.number = identification.number.replace(/\D/g, '');
     }
 
     return cleaned;

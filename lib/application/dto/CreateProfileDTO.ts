@@ -156,41 +156,43 @@ export class CreateProfileDTO {
   }
 
   // Método para limpar/formatar dados antes da validação
-  static clean(data: any): any {
+  static clean(data: unknown): unknown {
     if (typeof data !== 'object' || data === null) {
       return data;
     }
 
-    const cleaned = { ...data };
+    const input = data as Record<string, unknown>;
+    const cleaned = { ...input };
 
     // Limpar CPF (remover caracteres especiais)
-    if (cleaned.cpf) {
+    if (typeof cleaned.cpf === 'string') {
       cleaned.cpf = cleaned.cpf.replace(/\D/g, '');
     }
 
     // Limpar telefone
-    if (cleaned.phone) {
+    if (typeof cleaned.phone === 'string') {
       cleaned.phone = cleaned.phone.replace(/\D/g, '');
     }
 
     // Limpar telefone do contato de emergência
-    if (cleaned.emergencyContact?.phone) {
-      cleaned.emergencyContact.phone = cleaned.emergencyContact.phone.replace(/\D/g, '');
+    const emergencyContact = cleaned.emergencyContact as Record<string, unknown> | undefined;
+    if (emergencyContact?.phone && typeof emergencyContact.phone === 'string') {
+      emergencyContact.phone = emergencyContact.phone.replace(/\D/g, '');
     }
 
     // Limpar email
-    if (cleaned.email) {
+    if (typeof cleaned.email === 'string') {
       cleaned.email = cleaned.email.toLowerCase().trim();
     }
 
     // Limpar nome
-    if (cleaned.fullName) {
+    if (typeof cleaned.fullName === 'string') {
       cleaned.fullName = cleaned.fullName.trim();
     }
 
     // Limpar nome do contato
-    if (cleaned.emergencyContact?.name) {
-      cleaned.emergencyContact.name = cleaned.emergencyContact.name.trim();
+    if (emergencyContact?.name && typeof emergencyContact.name === 'string') {
+      emergencyContact.name = emergencyContact.name.trim();
     }
 
     return cleaned;

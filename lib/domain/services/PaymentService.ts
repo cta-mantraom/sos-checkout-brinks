@@ -14,6 +14,19 @@ export interface PaymentResult {
   boletoUrl?: string;
 }
 
+export interface MercadoPagoPaymentDetails {
+  id: string;
+  status: string;
+  status_detail: string;
+  point_of_interaction?: {
+    transaction_data?: {
+      qr_code?: string;
+      qr_code_base64?: string;
+      ticket_url?: string;
+    };
+  };
+}
+
 export interface IMercadoPagoClient {
   createPayment(payment: Payment): Promise<{
     id: string;
@@ -25,7 +38,7 @@ export interface IMercadoPagoClient {
   }>;
   
   validateWebhook(payload: unknown, headers: Record<string, string>): Promise<boolean>;
-  getPaymentById(id: string): Promise<any>;
+  getPaymentById(id: string): Promise<MercadoPagoPaymentDetails>;
 }
 
 export interface IPaymentService {
@@ -34,7 +47,7 @@ export interface IPaymentService {
   updatePaymentStatus(id: string, status: PaymentStatus): Promise<void>;
   getPaymentById(id: string): Promise<Payment | null>;
   cancelPayment(id: string, reason?: string): Promise<void>;
-  refundPayment(id: string, amount?: number): Promise<void>;
+  refundPayment(id: string): Promise<void>;
 }
 
 export class PaymentService implements IPaymentService {
@@ -153,7 +166,7 @@ export class PaymentService implements IPaymentService {
     await this.paymentRepository.update(payment);
   }
 
-  async refundPayment(id: string, amount?: number): Promise<void> {
+  async refundPayment(id: string): Promise<void> {
     const payment = await this.paymentRepository.findById(id);
     
     if (!payment) {

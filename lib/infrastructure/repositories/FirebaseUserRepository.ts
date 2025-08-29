@@ -1,6 +1,27 @@
-import { User } from '../../domain/entities/User.js';
+import { User, UserDTO } from '../../domain/entities/User.js';
 import { IUserRepository } from './IUserRepository.js';
 import { FirestoreClient } from '../firebase/FirestoreClient.js';
+import { z } from 'zod';
+
+// Schema Zod para validação de dados Firestore
+const FirestoreUserSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  passwordHash: z.string(),
+  role: z.enum(['user', 'admin', 'support']),
+  status: z.enum(['active', 'inactive', 'pending_verification', 'blocked']),
+  profileId: z.string().optional(),
+  lastLoginAt: z.date().optional(),
+  emailVerifiedAt: z.date().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+
+// Type guard com Zod
+function validateUserData(data: unknown): UserDTO {
+  const validated = FirestoreUserSchema.parse(data);
+  return validated as UserDTO;
+}
 
 export class FirebaseUserRepository implements IUserRepository {
   private readonly collection = 'users';
@@ -8,76 +29,50 @@ export class FirebaseUserRepository implements IUserRepository {
   constructor(private readonly firestoreClient: FirestoreClient) {}
 
   async save(user: User): Promise<void> {
-    const userData = {
-      ...user.toDTO(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    await this.firestoreClient.create(
-      this.collection,
-      user.getId(),
-      userData
-    );
+    const data = user.toDTO();
+    await this.firestoreClient.create(this.collection, data, data.id);
   }
 
   async findById(id: string): Promise<User | null> {
-    const doc = await this.firestoreClient.get(this.collection, id);
-    if (!doc) return null;
+    const data = await this.firestoreClient.findById(this.collection, id);
     
-    return User.fromDTO({
-      id,
-      ...doc
-    });
+    if (!data) {
+      return null;
+    }
+
+    const validatedData = validateUserData(data);
+    return User.fromDTO(validatedData);
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const results = await this.firestoreClient.query(this.collection, {
-      where: [{ field: 'email', operator: '==', value: email }],
-      limit: 1
-    });
+    const data = await this.firestoreClient.findOne(this.collection, 'email', email);
     
-    if (results.length === 0) return null;
-    
-    const [doc] = results;
-    return User.fromDTO(doc);
+    if (!data) {
+      return null;
+    }
+
+    const validatedData = validateUserData(data);
+    return User.fromDTO(validatedData);
   }
 
   async findByProfileId(profileId: string): Promise<User | null> {
-    const results = await this.firestoreClient.query(this.collection, {
-      where: [{ field: 'profileId', operator: '==', value: profileId }],
-      limit: 1
-    });
+    const data = await this.firestoreClient.findOne(this.collection, 'profileId', profileId);
     
-    if (results.length === 0) return null;
-    
-    const [doc] = results;
-    return User.fromDTO(doc);
+    if (!data) {
+      return null;
+    }
+
+    const validatedData = validateUserData(data);
+    return User.fromDTO(validatedData);
   }
 
   async update(user: User): Promise<void> {
-    const userData = {
-      ...user.toDTO(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    await this.firestoreClient.update(
-      this.collection,
-      user.getId(),
-      userData
-    );
+    const data = user.toDTO();
+    await this.firestoreClient.update(this.collection, data.id, data);
   }
 
   async delete(id: string): Promise<void> {
-    await this.firestoreClient.update(
-      this.collection,
-      id,
-      {
-        status: 'inactive',
-        deletedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    );
+    await this.firestoreClient.delete(this.collection, id, true);
   }
 
   async findMany(options: {
@@ -91,53 +86,59 @@ export class FirebaseUserRepository implements IUserRepository {
     page: number;
     totalPages: number;
   }> {
-    const page = options.page || 1;
-    const limit = options.limit || 20;
-    const offset = (page - 1) * limit;
+    const where = [];
     
-    const where: any[] = [];
     if (options.status) {
-      where.push({ field: 'status', operator: '==', value: options.status });
+      where.push({ field: 'status', operator: '==' as const, value: options.status });
     }
+    
     if (options.role) {
-      where.push({ field: 'role', operator: '==', value: options.role });
+      where.push({ field: 'role', operator: '==' as const, value: options.role });
     }
-    
-    const results = await this.firestoreClient.query(this.collection, {
-      where,
-      limit,
-      offset,
-      orderBy: [{ field: 'createdAt', direction: 'desc' }]
-    });
-    
-    const users = results.map(doc => User.fromDTO(doc));
-    
-    // Count total for pagination
-    const totalResults = await this.firestoreClient.query(this.collection, { where });
-    const total = totalResults.length;
-    
+
+    const result = await this.firestoreClient.findManyPaginated(
+      this.collection,
+      options.page || 1,
+      options.limit || 20,
+      { 
+        where,
+        orderBy: [{ field: 'createdAt', direction: 'desc' }]
+      }
+    );
+
     return {
-      users,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit)
+      users: result.data.map(data => {
+        const validatedData = validateUserData(data);
+        return User.fromDTO(validatedData);
+      }),
+      total: result.total,
+      page: result.page,
+      totalPages: result.totalPages
     };
   }
 
   async findByStatus(status: string): Promise<User[]> {
-    const results = await this.firestoreClient.query(this.collection, {
-      where: [{ field: 'status', operator: '==', value: status }]
+    const data = await this.firestoreClient.findMany(this.collection, {
+      where: [{ field: 'status', operator: '==', value: status }],
+      orderBy: [{ field: 'createdAt', direction: 'desc' }]
     });
     
-    return results.map(doc => User.fromDTO(doc));
+    return data.map(item => {
+      const validatedData = validateUserData(item);
+      return User.fromDTO(validatedData);
+    });
   }
 
   async findByRole(role: string): Promise<User[]> {
-    const results = await this.firestoreClient.query(this.collection, {
-      where: [{ field: 'role', operator: '==', value: role }]
+    const data = await this.firestoreClient.findMany(this.collection, {
+      where: [{ field: 'role', operator: '==', value: role }],
+      orderBy: [{ field: 'createdAt', direction: 'desc' }]
     });
     
-    return results.map(doc => User.fromDTO(doc));
+    return data.map(item => {
+      const validatedData = validateUserData(item);
+      return User.fromDTO(validatedData);
+    });
   }
 
   async findActive(): Promise<User[]> {
@@ -153,42 +154,38 @@ export class FirebaseUserRepository implements IUserRepository {
   }
 
   async countByStatus(status: string): Promise<number> {
-    const results = await this.firestoreClient.query(this.collection, {
-      where: [{ field: 'status', operator: '==', value: status }]
-    });
-    
-    return results.length;
+    return await this.firestoreClient.count(this.collection, [
+      { field: 'status', operator: '==', value: status }
+    ]);
   }
 
   async countByRole(role: string): Promise<number> {
-    const results = await this.firestoreClient.query(this.collection, {
-      where: [{ field: 'role', operator: '==', value: role }]
-    });
-    
-    return results.length;
+    return await this.firestoreClient.count(this.collection, [
+      { field: 'role', operator: '==', value: role }
+    ]);
   }
 
   async existsByEmail(email: string): Promise<boolean> {
-    const results = await this.firestoreClient.query(this.collection, {
-      where: [{ field: 'email', operator: '==', value: email }],
-      limit: 1
-    });
-    
-    return results.length > 0;
+    const data = await this.firestoreClient.findOne(this.collection, 'email', email);
+    return data !== null;
   }
 
   async findInactiveUsers(days: number): Promise<User[]> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
     
-    const results = await this.firestoreClient.query(this.collection, {
+    const data = await this.firestoreClient.findMany(this.collection, {
       where: [
-        { field: 'lastLoginAt', operator: '<', value: cutoffDate.toISOString() },
+        { field: 'lastLoginAt', operator: '<', value: cutoffDate },
         { field: 'status', operator: '==', value: 'active' }
-      ]
+      ],
+      orderBy: [{ field: 'lastLoginAt', direction: 'desc' }]
     });
     
-    return results.map(doc => User.fromDTO(doc));
+    return data.map(item => {
+      const validatedData = validateUserData(item);
+      return User.fromDTO(validatedData);
+    });
   }
 
   async getUserStats(): Promise<{
@@ -201,50 +198,35 @@ export class FirebaseUserRepository implements IUserRepository {
     support: number;
     users: number;
   }> {
-    const allUsers = await this.firestoreClient.query(this.collection, {});
+    const [
+      total,
+      active,
+      inactive,
+      blocked,
+      pendingVerification,
+      admins,
+      support,
+      users
+    ] = await Promise.all([
+      this.firestoreClient.count(this.collection),
+      this.countByStatus('active'),
+      this.countByStatus('inactive'),
+      this.countByStatus('blocked'),
+      this.countByStatus('pending_verification'),
+      this.countByRole('admin'),
+      this.countByRole('support'),
+      this.countByRole('user')
+    ]);
     
-    const stats = {
-      total: allUsers.length,
-      active: 0,
-      inactive: 0,
-      blocked: 0,
-      pendingVerification: 0,
-      admins: 0,
-      support: 0,
-      users: 0
+    return {
+      total,
+      active,
+      inactive,
+      blocked,
+      pendingVerification,
+      admins,
+      support,
+      users
     };
-    
-    for (const userData of allUsers) {
-      // Count by status
-      switch (userData.status) {
-        case 'active':
-          stats.active++;
-          break;
-        case 'inactive':
-          stats.inactive++;
-          break;
-        case 'blocked':
-          stats.blocked++;
-          break;
-        case 'pending_verification':
-          stats.pendingVerification++;
-          break;
-      }
-      
-      // Count by role
-      switch (userData.role) {
-        case 'admin':
-          stats.admins++;
-          break;
-        case 'support':
-          stats.support++;
-          break;
-        case 'user':
-          stats.users++;
-          break;
-      }
-    }
-    
-    return stats;
   }
 }

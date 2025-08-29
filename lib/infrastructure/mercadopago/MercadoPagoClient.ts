@@ -76,7 +76,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
         description: payment.getDescription() || 'Assinatura SOS Checkout Brinks'
       };
 
-      const response = await this.makeRequest('POST', '/v1/payments', paymentData);
+      const response = await this.makeRequest('POST', '/v1/payments', paymentData) as MercadoPagoPaymentResponse;
       
       return {
         id: response.id,
@@ -95,7 +95,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
 
   async getPaymentById(id: string): Promise<MercadoPagoPaymentResponse> {
     try {
-      return await this.makeRequest('GET', `/v1/payments/${id}`);
+      return await this.makeRequest('GET', `/v1/payments/${id}`) as MercadoPagoPaymentResponse;
     } catch (error) {
       console.error('Erro ao buscar pagamento no MercadoPago:', error);
       throw new Error(`Falha ao buscar pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
@@ -171,7 +171,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
     try {
       const refundData = amount ? { amount } : {};
       
-      const response = await this.makeRequest('POST', `/v1/payments/${paymentId}/refunds`, refundData);
+      const response = await this.makeRequest('POST', `/v1/payments/${paymentId}/refunds`, refundData) as { id: string; status: string; amount: number };
       
       return {
         id: response.id,
@@ -192,7 +192,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
     try {
       const response = await this.makeRequest('PUT', `/v1/payments/${paymentId}`, {
         status: 'cancelled'
-      });
+      }) as { id: string; status: string };
       
       return {
         id: response.id,
@@ -205,7 +205,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
     }
   }
 
-  private async makeRequest(method: string, endpoint: string, data?: any): Promise<any> {
+  private async makeRequest(method: string, endpoint: string, data?: unknown): Promise<unknown> {
     const url = `${this.baseUrl}${endpoint}`;
     
     const options: RequestInit = {

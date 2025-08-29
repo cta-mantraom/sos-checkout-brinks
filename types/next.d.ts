@@ -11,19 +11,19 @@ declare module 'next/server' {
       get(name: string): { value: string } | undefined;
       set(name: string, value: string): void;
     };
-    json(): Promise<any>;
+    json(): Promise<unknown>;
     text(): Promise<string>;
   }
   
   export class NextResponse extends Response {
-    static json(body: any, init?: ResponseInit): NextResponse;
+    static json(body: unknown, init?: ResponseInit): NextResponse;
     static redirect(url: string | URL, status?: number): NextResponse;
     static rewrite(url: string | URL): NextResponse;
     static next(init?: ResponseInit): NextResponse;
     
     cookies: {
       get(name: string): { value: string } | undefined;
-      set(name: string, value: string, options?: any): void;
+      set(name: string, value: string, options?: Record<string, unknown>): void;
       delete(name: string): void;
     };
   }

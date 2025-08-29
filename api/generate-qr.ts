@@ -84,7 +84,7 @@ export default async function handler(req: NextRequest) {
       regenerate = url.searchParams.get('regenerate') === 'true';
     } else {
       // POST
-      let body: any;
+      let body: unknown;
       try {
         body = await req.json();
       } catch (error) {
@@ -97,8 +97,14 @@ export default async function handler(req: NextRequest) {
         }, 400, req);
       }
 
-      profileId = body.profileId || '';
-      regenerate = body.regenerate === true;
+      // Type guard para body
+      function isQRRequestBody(data: unknown): data is { profileId?: string; regenerate?: boolean } {
+        return typeof data === 'object' && data !== null;
+      }
+
+      const qrData = isQRRequestBody(body) ? body : {};
+      profileId = qrData.profileId || '';
+      regenerate = qrData.regenerate === true;
     }
 
     // Validar profileId

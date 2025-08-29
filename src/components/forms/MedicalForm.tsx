@@ -79,7 +79,7 @@ export function MedicalForm({
     remove: removeAllergy 
   } = useFieldArray({
     control: form.control,
-    name: 'allergies',
+    name: 'allergies' as never,
   });
 
   const { 
@@ -97,7 +97,7 @@ export function MedicalForm({
     remove: removeCondition 
   } = useFieldArray({
     control: form.control,
-    name: 'medicalConditions',
+    name: 'medicalConditions' as never,
   });
 
   const { 
@@ -163,7 +163,7 @@ export function MedicalForm({
 
   return (
     <div className={cn("w-full max-w-4xl mx-auto space-y-6", className)}>
-      <FormErrorDisplay error={error} />
+      <FormErrorDisplay error={error || null} />
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
@@ -381,7 +381,7 @@ export function MedicalForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => appendAllergy('')}
+                    onClick={() => appendAllergy('' as never)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Adicionar Alergia
@@ -501,7 +501,7 @@ export function MedicalForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => appendCondition('')}
+                    onClick={() => appendCondition('' as never)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Adicionar Condição

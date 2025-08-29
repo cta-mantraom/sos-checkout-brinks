@@ -188,7 +188,7 @@ export class Payment {
   }
 
   getExternalId(): string | undefined {
-    return this.externalId;
+    return this.mercadoPagoId;
   }
 
   getAmount(): number {
@@ -365,30 +365,4 @@ export class Payment {
     };
   }
 
-  static fromDTO(dto: PaymentDTO): Payment {
-    const payment = new Payment(
-      dto.profileId,
-      dto.amount,
-      dto.paymentMethodId,
-      dto.paymentMethod,
-      dto.description
-    );
-    
-    // Restaurar propriedades privadas
-    (payment as any).id = dto.id;
-    (payment as any).status = PaymentStatus.create(dto.status);
-    (payment as any).mercadoPagoId = dto.mercadoPagoId;
-    (payment as any).token = dto.token;
-    (payment as any).installments = dto.installments;
-    (payment as any).pixQrCode = dto.pixQrCode;
-    (payment as any).pixQrCodeBase64 = dto.pixQrCodeBase64;
-    (payment as any).boletoUrl = dto.boletoUrl;
-    (payment as any).failureReason = dto.failureReason;
-    (payment as any).processedAt = dto.processedAt;
-    (payment as any).expiresAt = dto.expiresAt;
-    (payment as any).createdAt = dto.createdAt;
-    (payment as any).updatedAt = dto.updatedAt;
-    
-    return payment;
-  }
 }

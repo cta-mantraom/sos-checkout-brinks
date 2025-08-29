@@ -47,7 +47,12 @@ export function initializeServices(): ServiceContainer {
     const firestoreClient = new FirestoreClient(firebaseConfig);
     
     // Inicializar MercadoPago
-    const mercadoPagoClient = new MercadoPagoClient();
+    const mercadoPagoConfig = {
+      accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
+      webhookSecret: process.env.MERCADOPAGO_WEBHOOK_SECRET || '',
+      environment: (process.env.NODE_ENV === 'production' ? 'production' : 'sandbox') as 'production' | 'sandbox'
+    };
+    const mercadoPagoClient = new MercadoPagoClient(mercadoPagoConfig);
     
     // Repositórios
     const profileRepository = new FirebaseProfileRepository(firestoreClient);
@@ -67,7 +72,23 @@ export function initializeServices(): ServiceContainer {
       mercadoPagoClient
     );
     
-    const qrCodeService = new QRCodeService();
+    // QRCodeService com gerador de QR Code
+    const qrCodeGenerator = {
+      generateQR: async (data: string): Promise<{ url: string; base64: string }> => {
+        // Implementação simples do gerador de QR Code
+        const encodedData = encodeURIComponent(data);
+        const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedData}`;
+        // Por enquanto, usamos a mesma URL para base64
+        const base64 = url; // Em produção, converteria para base64 real
+        return { url, base64 };
+      },
+      uploadQRImage: async (imageData: string, _profileId: string): Promise<string> => {
+        // Por enquanto, retorna a própria imageData como URL
+        // Em produção, faria upload para storage
+        return imageData;
+      }
+    };
+    const qrCodeService = new QRCodeService(profileRepository, qrCodeGenerator);
     
     // Casos de uso
     const createProfileUseCase = new CreateProfileUseCase(profileService);

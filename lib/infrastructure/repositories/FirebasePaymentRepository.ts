@@ -1,6 +1,35 @@
-import { Payment } from '../../domain/entities/Payment.js';
+import { Payment, PaymentDTO } from '../../domain/entities/Payment.js';
 import { IPaymentRepository } from './IPaymentRepository.js';
 import { FirestoreClient } from '../firebase/FirestoreClient.js';
+import { z } from 'zod';
+
+// Schema Zod para validação de dados Firestore
+const FirestorePaymentSchema = z.object({
+  id: z.string(),
+  profileId: z.string(),
+  amount: z.number(),
+  paymentMethodId: z.string(),
+  paymentMethod: z.enum(['credit_card', 'debit_card', 'pix', 'boleto']),
+  status: z.string(),
+  mercadoPagoId: z.string().optional(),
+  token: z.string().optional(),
+  installments: z.number(),
+  description: z.string().optional(),
+  pixQrCode: z.string().optional(),
+  pixQrCodeBase64: z.string().optional(),
+  boletoUrl: z.string().optional(),
+  failureReason: z.string().optional(),
+  processedAt: z.date().optional(),
+  expiresAt: z.date().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+
+// Type guard com Zod
+function validatePaymentData(data: unknown): PaymentDTO {
+  const validated = FirestorePaymentSchema.parse(data);
+  return validated as PaymentDTO;
+}
 
 export class FirebasePaymentRepository implements IPaymentRepository {
   private readonly collection = 'payments';
@@ -19,7 +48,8 @@ export class FirebasePaymentRepository implements IPaymentRepository {
       return null;
     }
 
-    return Payment.fromDTO(data);
+    const validatedData = validatePaymentData(data);
+    return Payment.fromDTO(validatedData);
   }
 
   async findByMercadoPagoId(mercadoPagoId: string): Promise<Payment | null> {
@@ -29,7 +59,8 @@ export class FirebasePaymentRepository implements IPaymentRepository {
       return null;
     }
 
-    return Payment.fromDTO(data);
+    const validatedData = validatePaymentData(data);
+    return Payment.fromDTO(validatedData);
   }
 
   async findByExternalId(externalId: string): Promise<Payment | null> {
@@ -43,7 +74,10 @@ export class FirebasePaymentRepository implements IPaymentRepository {
       orderBy: [{ field: 'createdAt', direction: 'desc' }]
     });
 
-    return data.map(item => Payment.fromDTO(item));
+    return data.map(item => {
+      const validatedData = validatePaymentData(item);
+      return Payment.fromDTO(validatedData);
+    });
   }
 
   async update(payment: Payment): Promise<void> {
@@ -92,7 +126,10 @@ export class FirebasePaymentRepository implements IPaymentRepository {
     );
 
     return {
-      payments: result.data.map(data => Payment.fromDTO(data)),
+      payments: result.data.map(data => {
+        const validatedData = validatePaymentData(data);
+        return Payment.fromDTO(validatedData);
+      }),
       total: result.total,
       page: result.page,
       totalPages: result.totalPages
@@ -105,7 +142,10 @@ export class FirebasePaymentRepository implements IPaymentRepository {
       orderBy: [{ field: 'createdAt', direction: 'desc' }]
     });
 
-    return data.map(item => Payment.fromDTO(item));
+    return data.map(item => {
+      const validatedData = validatePaymentData(item);
+      return Payment.fromDTO(validatedData);
+    });
   }
 
   async findExpired(): Promise<Payment[]> {
@@ -117,7 +157,10 @@ export class FirebasePaymentRepository implements IPaymentRepository {
       ]
     });
 
-    return data.map(item => Payment.fromDTO(item));
+    return data.map(item => {
+      const validatedData = validatePaymentData(item);
+      return Payment.fromDTO(validatedData);
+    });
   }
 
   async findPendingByMethod(paymentMethod: string): Promise<Payment[]> {
@@ -129,7 +172,10 @@ export class FirebasePaymentRepository implements IPaymentRepository {
       orderBy: [{ field: 'createdAt', direction: 'desc' }]
     });
 
-    return data.map(item => Payment.fromDTO(item));
+    return data.map(item => {
+      const validatedData = validatePaymentData(item);
+      return Payment.fromDTO(validatedData);
+    });
   }
 
   async findByDateRange(startDate: Date, endDate: Date): Promise<Payment[]> {
@@ -141,7 +187,10 @@ export class FirebasePaymentRepository implements IPaymentRepository {
       orderBy: [{ field: 'createdAt', direction: 'desc' }]
     });
 
-    return data.map(item => Payment.fromDTO(item));
+    return data.map(item => {
+      const validatedData = validatePaymentData(item);
+      return Payment.fromDTO(validatedData);
+    });
   }
 
   async countByStatus(status: string): Promise<number> {

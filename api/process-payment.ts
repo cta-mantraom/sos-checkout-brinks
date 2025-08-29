@@ -86,10 +86,17 @@ export default async function handler(req: NextRequest) {
       }, 400, req);
     }
 
+    // Type guard para body
+    function isValidPaymentBody(data: unknown): data is { paymentMethod?: string; profileId?: string } {
+      return typeof data === 'object' && data !== null;
+    }
+
+    const paymentData = isValidPaymentBody(body) ? body : {};
+    
     logger.info('Process payment request received', {
       identifier,
-      paymentMethod: (body as any)?.paymentMethod,
-      profileId: (body as any)?.profileId
+      paymentMethod: paymentData.paymentMethod,
+      profileId: paymentData.profileId
     });
 
     // Inicializar serviços

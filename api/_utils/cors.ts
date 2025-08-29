@@ -85,7 +85,7 @@ export function handleCorsPreFlight(req: NextRequest, options?: CorsOptions): Ne
 }
 
 export function createCorsResponse(
-  data: any,
+  data: unknown,
   status: number,
   req: NextRequest,
   options?: CorsOptions

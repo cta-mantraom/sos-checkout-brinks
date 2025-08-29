@@ -19,11 +19,11 @@ const rateLimitCache = new Map<string, RateLimitEntry>();
 // Limpar entradas expiradas periodicamente
 setInterval(() => {
   const now = Date.now();
-  for (const [key, entry] of rateLimitCache.entries()) {
+  Array.from(rateLimitCache.entries()).forEach(([key, entry]) => {
     if (now > entry.resetTime) {
       rateLimitCache.delete(key);
     }
-  }
+  });
 }, 60000); // Limpar a cada minuto
 
 export const RATE_LIMIT_CONFIGS = {
@@ -151,7 +151,8 @@ export function getClientIP(req: NextRequest): string {
     return realIP;
   }
   
-  return req.ip || 'unknown';
+  // Fallback para localhost ou IP desconhecido
+  return '127.0.0.1';
 }
 
 export function createRateLimitHeaders(result: RateLimitResult): Record<string, string> {
@@ -174,7 +175,7 @@ export function withRateLimit(
   identifierFn?: (req: NextRequest) => string
 ) {
   return function (handler: Function) {
-    return async function (req: NextRequest, ...args: any[]) {
+    return async function (req: NextRequest, ...args: unknown[]) {
       const identifier = identifierFn ? identifierFn(req) : getRateLimitIdentifier(req);
       const rateLimitResult = checkRateLimit(identifier, config);
       

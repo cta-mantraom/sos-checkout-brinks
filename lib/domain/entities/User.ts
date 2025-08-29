@@ -331,21 +331,4 @@ export class User {
     return safeDto;
   }
 
-  // Deserialization
-  static fromDTO(dto: UserDTO): User {
-    const email = Email.create(dto.email);
-    
-    return new User(
-      dto.id,
-      email,
-      dto.passwordHash,
-      dto.role,
-      dto.status,
-      dto.profileId,
-      dto.lastLoginAt,
-      dto.emailVerifiedAt,
-      dto.createdAt,
-      dto.updatedAt
-    );
-  }
 }

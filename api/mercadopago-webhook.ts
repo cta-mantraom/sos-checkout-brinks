@@ -134,7 +134,7 @@ export default async function handler(req: NextRequest) {
 
     try {
       // Buscar detalhes do pagamento no MercadoPago
-      const paymentDetails = await services.mercadoPagoClient.getPayment(webhookData.data.id);
+      const paymentDetails = await services.mercadoPagoClient.getPaymentById(webhookData.data.id);
       
       if (!paymentDetails) {
         logger.warn('Payment not found in MercadoPago', { paymentId: webhookData.data.id });
@@ -174,7 +174,7 @@ export default async function handler(req: NextRequest) {
           break;
         case 'rejected':
         case 'cancelled':
-          newStatus = PaymentStatus.FAILED;
+          newStatus = PaymentStatus.REJECTED;
           break;
         case 'refunded':
         case 'charged_back':

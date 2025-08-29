@@ -104,7 +104,7 @@ export function QRCodeDisplay({
 
   return (
     <div className={cn("w-full max-w-md mx-auto space-y-4", className)}>
-      <FormErrorDisplay error={error} />
+      <FormErrorDisplay error={error || null} />
       
       <Card>
         <CardHeader className="text-center">

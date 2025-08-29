@@ -1,6 +1,6 @@
-import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
+import { initializeApp, getApps, getApp, cert, App } from 'firebase-admin/app';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { getStorage, Storage } from 'firebase-admin/storage';
 
 export interface FirebaseConfigOptions {
   projectId: string;
@@ -11,9 +11,9 @@ export interface FirebaseConfigOptions {
 
 export class FirebaseConfig {
   private static instance: FirebaseConfig;
-  private app: any;
-  private firestore: any;
-  private storage: any;
+  private app!: App;
+  private firestore!: Firestore;
+  private storage!: Storage;
 
   private constructor(options: FirebaseConfigOptions) {
     this.initializeFirebase(options);
@@ -68,15 +68,15 @@ export class FirebaseConfig {
     }
   }
 
-  getFirestore() {
+  getFirestore(): Firestore {
     return this.firestore;
   }
 
-  getStorage() {
+  getStorage(): Storage {
     return this.storage;
   }
 
-  getApp() {
+  getApp(): App {
     return this.app;
   }
 

@@ -86,7 +86,8 @@ export default async function handler(req: NextRequest) {
         nodeVersion: process.version,
         platform: process.platform,
         arch: process.arch
-      }
+      },
+      errors: [] as string[]
     };
 
     // Incluir erros se houver

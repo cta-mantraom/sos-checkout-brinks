@@ -9,13 +9,53 @@ import { SUBSCRIPTION_PRICES } from '@/lib/constants/prices';
 import { CreditCard, Smartphone, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// Interfaces específicas para MercadoPago Payment Brick
+interface PaymentMethodData {
+  type: 'credit_card' | 'debit_card' | 'ticket' | 'pix' | 'bank_transfer';
+  id: string;
+}
+
+interface PaymentFormData {
+  token?: string;
+  issuer_id?: string;
+  payment_method_id?: string;
+  transaction_amount: number;
+  installments?: number;
+  payer?: {
+    email?: string;
+    identification?: {
+      type: string;
+      number: string;
+    };
+  };
+}
+
+interface PaymentSubmissionData {
+  selectedPaymentMethod: PaymentMethodData;
+  formData: PaymentFormData;
+}
+
+interface PaymentError {
+  message?: string;
+  cause?: unknown;
+}
+
+interface PaymentResult {
+  id: string;
+  status: 'approved' | 'pending' | 'rejected';
+  status_detail?: string;
+  payment_method_id?: string;
+  payment_type_id?: string;
+  transaction_amount: number;
+}
+
 interface PaymentBrickProps {
   subscriptionType: SubscriptionType;
   profileId: string;
   amount: number;
-  onPaymentSuccess: (paymentData: any) => void;
-  onPaymentError: (error: any) => void;
-  onPaymentPending?: (paymentData: any) => void;
+  onPaymentSuccess: (paymentData: PaymentResult) => void;
+  onPaymentError: (error: Error | PaymentError) => void;
+  onPaymentPending?: (paymentData: PaymentResult) => void;
   className?: string;
   disabled?: boolean;
 }
@@ -23,7 +63,7 @@ interface PaymentBrickProps {
 interface BrickInstance {
   mount: (containerId: string) => void;
   unmount: () => void;
-  update: (data: any) => void;
+  update: (data: Record<string, unknown>) => void;
 }
 
 export function PaymentBrick({
@@ -88,7 +128,9 @@ export function PaymentBrick({
               console.log('Payment Brick está pronto');
               setIsLoading(false);
             },
-            onSubmit: async ({ selectedPaymentMethod, formData }: any) => {
+            onSubmit: async (data: unknown) => {
+              const paymentData = data as PaymentSubmissionData;
+              const { selectedPaymentMethod, formData } = paymentData;
               try {
                 const paymentData = {
                   subscriptionType,
@@ -131,11 +173,11 @@ export function PaymentBrick({
                 return result;
               } catch (error) {
                 console.error('Erro no processamento do pagamento:', error);
-                onPaymentError(error);
+                onPaymentError(error instanceof Error ? error : new Error('Erro desconhecido'));
                 throw error;
               }
             },
-            onError: (error: any) => {
+            onError: (error: PaymentError) => {
               console.error('Erro no Payment Brick:', error);
               setError(error.message || 'Erro no formulário de pagamento');
               onPaymentError(error);

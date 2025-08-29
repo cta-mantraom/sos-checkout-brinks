@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingCard } from '@/components/common/LoadingStates';
 import { FormErrorDisplay } from '@/components/common/ErrorBoundary';
+import { cn } from '@/lib/utils';
 import { 
   CheckCircle, 
   Home, 
