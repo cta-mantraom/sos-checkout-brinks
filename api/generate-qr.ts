@@ -79,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let regenerate = false;
 
     if (req.method === 'GET') {
-      const url = new URL(req.url, `http://${req.headers.host}`);
+      const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
       profileId = url.searchParams.get('profileId') || '';
       regenerate = url.searchParams.get('regenerate') === 'true';
     } else {

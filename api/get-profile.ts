@@ -124,7 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Obter parâmetros da URL
-    const url = new URL(req.url, `http://${req.headers.host}`);
+    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const profileId = url.searchParams.get('id') || url.searchParams.get('profileId') || '';
     const includeQR = url.searchParams.get('includeQR') === 'true';
     const includePayments = url.searchParams.get('includePayments') === 'true';
