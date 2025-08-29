@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MedicalFormData } from '@/schemas/medicalForm';
+import { transformToBackendFormat, BackendProfileData } from '@/schemas/profileTransform';
 
 interface Profile {
   id: string;
@@ -38,21 +39,49 @@ interface Profile {
   updatedAt: string;
 }
 
-async function createProfile(data: MedicalFormData): Promise<Profile> {
+async function createProfile(data: MedicalFormData, subscriptionPlan: 'basic' | 'premium' = 'basic'): Promise<Profile> {
+  // Transformar dados do frontend para o formato esperado pelo backend
+  const backendData: BackendProfileData = transformToBackendFormat(data, subscriptionPlan);
+  
   const response = await fetch('/api/create-profile', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(backendData),
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Erro ao criar perfil');
+    const errorData = await response.json();
+    throw new Error(errorData.message || errorData.error || 'Erro ao criar perfil');
   }
 
-  return response.json();
+  const result = await response.json();
+  
+  // Extrair dados do perfil da resposta
+  const profileData = result.data?.profile || result;
+  
+  // Mapear resposta do backend para o formato do frontend
+  return {
+    id: profileData.id,
+    name: profileData.fullName || profileData.name || data.name,
+    email: profileData.email,
+    cpf: data.cpf, // Manter formatado
+    phone: data.phone, // Manter formatado
+    birthDate: data.birthDate,
+    bloodType: profileData.bloodType || data.bloodType,
+    weight: data.weight,
+    height: data.height,
+    allergies: data.allergies,
+    medications: data.medications,
+    medicalConditions: data.medicalConditions,
+    emergencyContacts: data.emergencyContacts,
+    doctor: data.doctor,
+    healthInsurance: data.healthInsurance,
+    observations: data.observations,
+    createdAt: profileData.createdAt || new Date().toISOString(),
+    updatedAt: profileData.updatedAt || new Date().toISOString(),
+  };
 }
 
 async function getProfile(id: string): Promise<Profile> {
@@ -93,11 +122,11 @@ export function useProfile(profileId?: string) {
   });
 }
 
-export function useCreateProfile() {
+export function useCreateProfile(subscriptionPlan: 'basic' | 'premium' = 'basic') {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: createProfile,
+    mutationFn: (data: MedicalFormData) => createProfile(data, subscriptionPlan),
     onSuccess: (data) => {
       // Adiciona o perfil ao cache
       queryClient.setQueryData(['profile', data.id], data);

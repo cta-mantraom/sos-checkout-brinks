@@ -10,9 +10,9 @@ import { ArrowLeft, Shield, Clock, FileText } from 'lucide-react';
 export function MedicalFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const createProfileMutation = useCreateProfile();
   
-  const selectedPlan = location.state?.selectedPlan || 'basic';
+  const selectedPlan = (location.state?.selectedPlan || 'basic') as 'basic' | 'premium';
+  const createProfileMutation = useCreateProfile(selectedPlan);
 
   const handleSubmit = async (data: MedicalFormData) => {
     try {
