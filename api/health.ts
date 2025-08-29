@@ -1,9 +1,9 @@
-import { NextRequest } from 'next/server';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { healthCheck, validateEnvironment } from './_utils/serviceFactory.js';
 import { createCorsResponse, handleCorsPreFlight, validateCorsOrigin } from './_utils/cors.js';
 import { logger } from '../lib/shared/utils/logger.js';
 
-export default async function handler(req: NextRequest) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
   try {
@@ -13,12 +13,12 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Origin not allowed',
         code: 'CORS_ERROR'
-      }, 403, req);
+      }, 403, req, res);
     }
 
     // Tratar OPTIONS (preflight)
     if (req.method === 'OPTIONS') {
-      return handleCorsPreFlight(req);
+      return handleCorsPreFlight(req, res);
     }
 
     // Validar método HTTP
@@ -27,11 +27,11 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Method not allowed',
         code: 'METHOD_NOT_ALLOWED'
-      }, 405, req);
+      }, 405, req, res);
     }
 
     // Obter parâmetros da URL
-    const url = new URL(req.url);
+    const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
     const detailed = url.searchParams.get('detailed') === 'true';
 
     // Validação básica de environment
@@ -55,7 +55,7 @@ export default async function handler(req: NextRequest) {
       return createCorsResponse({
         success: true,
         data: basicHealth
-      }, 200, req);
+      }, 200, req, res);
     }
 
     // Health check detalhado
@@ -107,7 +107,7 @@ export default async function handler(req: NextRequest) {
     return createCorsResponse({
       success: servicesHealth.healthy,
       data: detailedHealth
-    }, statusCode, req);
+    }, statusCode, req, res);
 
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -123,6 +123,6 @@ export default async function handler(req: NextRequest) {
         timestamp: new Date().toISOString(),
         duration
       }
-    }, 500, req);
+    }, 500, req, res);
   }
 }

@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeServices, validateEnvironment } from './_utils/serviceFactory.js';
 import { createCorsResponse, handleCorsPreFlight, validateCorsOrigin } from './_utils/cors.js';
 import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_CONFIGS } from './_utils/rateLimit.js';
@@ -7,7 +7,7 @@ import { PaymentDTO, WebhookData } from '../lib/application/dto/PaymentDTO.js';
 import { PaymentStatus } from '../lib/domain/value-objects/PaymentStatus.js';
 import { ValidationError, PaymentError } from '../lib/domain/errors.js';
 
-export default async function handler(req: NextRequest) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
   const identifier = getRateLimitIdentifier(req);
 
@@ -25,20 +25,20 @@ export default async function handler(req: NextRequest) {
 
     if (!validateCorsOrigin(req, corsOptions)) {
       logger.warn('Webhook from unauthorized origin', {
-        origin: req.headers.get('origin'),
-        userAgent: req.headers.get('user-agent')
+        origin: req.headers['origin'],
+        userAgent: req.headers['user-agent']
       });
       
       return createCorsResponse({
         success: false,
         error: 'Origin not allowed',
         code: 'CORS_ERROR'
-      }, 403, req, corsOptions);
+      }, 403, req, res, corsOptions);
     }
 
     // Tratar OPTIONS (preflight)
     if (req.method === 'OPTIONS') {
-      return handleCorsPreFlight(req, corsOptions);
+      return handleCorsPreFlight(req, res, corsOptions);
     }
 
     // Validar método HTTP
@@ -47,7 +47,7 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Method not allowed',
         code: 'METHOD_NOT_ALLOWED'
-      }, 405, req, corsOptions);
+      }, 405, req, res, corsOptions);
     }
 
     // Validar environment
@@ -58,7 +58,7 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Server configuration error',
         code: 'CONFIG_ERROR'
-      }, 500, req, corsOptions);
+      }, 500, req, res, corsOptions);
     }
 
     // Rate limiting específico para webhooks
@@ -73,20 +73,20 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Rate limit exceeded',
         code: 'RATE_LIMIT_EXCEEDED'
-      }, 429, req, corsOptions);
+      }, 429, req, res, corsOptions);
     }
 
     // Parsear body da requisição
     let body: unknown;
     try {
-      body = await req.json();
+      body = req.body;
     } catch (error) {
       logger.warn('Invalid JSON in webhook body', { error: error instanceof Error ? error.message : 'Unknown' });
       return createCorsResponse({
         success: false,
         error: 'Invalid JSON',
         code: 'INVALID_JSON'
-      }, 400, req, corsOptions);
+      }, 400, req, res, corsOptions);
     }
 
     // Validar estrutura do webhook
@@ -104,7 +104,7 @@ export default async function handler(req: NextRequest) {
         error: 'Invalid webhook format',
         message: error instanceof Error ? error.message : 'Invalid webhook structure',
         code: 'INVALID_WEBHOOK'
-      }, 400, req, corsOptions);
+      }, 400, req, res, corsOptions);
     }
 
     logger.webhookLog('received', 'mercadopago', {
@@ -126,7 +126,7 @@ export default async function handler(req: NextRequest) {
         success: true,
         message: 'Webhook received but ignored - not a payment type',
         code: 'IGNORED'
-      }, 200, req, corsOptions);
+      }, 200, req, res, corsOptions);
     }
 
     // Inicializar serviços
@@ -142,7 +142,7 @@ export default async function handler(req: NextRequest) {
           success: false,
           error: 'Payment not found',
           code: 'PAYMENT_NOT_FOUND'
-        }, 404, req, corsOptions);
+        }, 404, req, res, corsOptions);
       }
 
       // Buscar pagamento no banco de dados usando external_id
@@ -158,7 +158,7 @@ export default async function handler(req: NextRequest) {
           success: false,
           error: 'Payment not found in database',
           code: 'PAYMENT_NOT_IN_DB'
-        }, 404, req, corsOptions);
+        }, 404, req, res, corsOptions);
       }
 
       // Mapear status do MercadoPago para nosso PaymentStatus
@@ -200,7 +200,7 @@ export default async function handler(req: NextRequest) {
           success: true,
           message: 'Status unchanged',
           code: 'NO_CHANGE'
-        }, 200, req, corsOptions);
+        }, 200, req, res, corsOptions);
       }
 
       // Atualizar status do pagamento
@@ -254,7 +254,7 @@ export default async function handler(req: NextRequest) {
             status_detail: paymentDetails.status_detail
           }
         }
-      }, 200, req, corsOptions);
+      }, 200, req, res, corsOptions);
 
     } catch (serviceError) {
       logger.error('Error processing webhook', serviceError as Error, {
@@ -267,7 +267,7 @@ export default async function handler(req: NextRequest) {
         error: 'Error processing webhook',
         message: serviceError instanceof Error ? serviceError.message : 'Unknown service error',
         code: 'PROCESSING_ERROR'
-      }, 500, req, corsOptions);
+      }, 500, req, res, corsOptions);
     }
 
   } catch (error) {
@@ -282,7 +282,7 @@ export default async function handler(req: NextRequest) {
         error: 'Validation error',
         message: error.message,
         code: error.code
-      }, 400, req);
+      }, 400, req, res);
     }
 
     if (error instanceof PaymentError) {
@@ -291,7 +291,7 @@ export default async function handler(req: NextRequest) {
         error: 'Payment error',
         message: error.message,
         code: error.code
-      }, 422, req);
+      }, 422, req, res);
     }
 
     // Erro genérico
@@ -300,6 +300,6 @@ export default async function handler(req: NextRequest) {
       error: 'Internal server error',
       message: 'Erro interno do servidor',
       code: 'INTERNAL_SERVER_ERROR'
-    }, 500, req);
+    }, 500, req, res);
   }
 }

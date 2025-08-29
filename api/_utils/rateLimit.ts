@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 interface RateLimitConfig {
   windowMs: number; // Janela de tempo em millisegundos
@@ -121,19 +121,19 @@ export function checkRateLimit(
   };
 }
 
-export function getRateLimitIdentifier(req: NextRequest, includeUserAgent = false): string {
+export function getRateLimitIdentifier(req: VercelRequest, includeUserAgent = false): string {
   const ip = getClientIP(req);
-  const userAgent = includeUserAgent ? req.headers.get('user-agent') : '';
+  const userAgent = includeUserAgent ? (req.headers['user-agent'] as string) || '' : '';
   
   return `${ip}:${userAgent}`;
 }
 
-export function getClientIP(req: NextRequest): string {
+export function getClientIP(req: VercelRequest): string {
   // Tentar diferentes headers para obter o IP real
-  const forwarded = req.headers.get('x-forwarded-for');
-  const realIP = req.headers.get('x-real-ip');
-  const cloudflareIP = req.headers.get('cf-connecting-ip');
-  const vercelIP = req.headers.get('x-vercel-forwarded-for');
+  const forwarded = req.headers['x-forwarded-for'] as string | undefined;
+  const realIP = req.headers['x-real-ip'] as string | undefined;
+  const cloudflareIP = req.headers['cf-connecting-ip'] as string | undefined;
+  const vercelIP = req.headers['x-vercel-forwarded-for'] as string | undefined;
   
   if (vercelIP) {
     return vercelIP.split(',')[0].trim();
@@ -172,45 +172,38 @@ export function createRateLimitHeaders(result: RateLimitResult): Record<string, 
 // Middleware helper para aplicar rate limiting em handlers
 export function withRateLimit(
   config: RateLimitConfig = RATE_LIMIT_CONFIGS.default,
-  identifierFn?: (req: NextRequest) => string
+  identifierFn?: (req: VercelRequest) => string
 ) {
   return function (handler: Function) {
-    return async function (req: NextRequest, ...args: unknown[]) {
+    return async function (req: VercelRequest, res: VercelResponse) {
       const identifier = identifierFn ? identifierFn(req) : getRateLimitIdentifier(req);
       const rateLimitResult = checkRateLimit(identifier, config);
       
       if (!rateLimitResult.success) {
         const headers = config.headers ? createRateLimitHeaders(rateLimitResult) : {};
         
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Rate limit exceeded',
-            message: rateLimitResult.message,
-            code: 'RATE_LIMIT_EXCEEDED',
-            retryAfter: rateLimitResult.retryAfter
-          }),
-          {
-            status: 429,
-            headers: {
-              'Content-Type': 'application/json',
-              ...headers
-            }
-          }
-        );
-      }
-      
-      const response = await handler(req, ...args);
-      
-      // Adicionar headers de rate limit à resposta de sucesso
-      if (config.headers && response instanceof Response) {
-        const headers = createRateLimitHeaders(rateLimitResult);
         Object.entries(headers).forEach(([key, value]) => {
-          response.headers.set(key, value);
+          res.setHeader(key, value);
+        });
+        
+        return res.status(429).json({
+          success: false,
+          error: 'Rate limit exceeded',
+          message: rateLimitResult.message,
+          code: 'RATE_LIMIT_EXCEEDED',
+          retryAfter: rateLimitResult.retryAfter
         });
       }
       
-      return response;
+      // Adicionar headers de rate limit à resposta de sucesso
+      if (config.headers) {
+        const headers = createRateLimitHeaders(rateLimitResult);
+        Object.entries(headers).forEach(([key, value]) => {
+          res.setHeader(key, value);
+        });
+      }
+      
+      return handler(req, res);
     };
   };
 }

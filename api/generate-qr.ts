@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeServices, validateEnvironment } from './_utils/serviceFactory.js';
 import { createCorsResponse, handleCorsPreFlight, validateCorsOrigin } from './_utils/cors.js';
 import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_CONFIGS } from './_utils/rateLimit.js';
@@ -7,7 +7,7 @@ import { logger } from '../lib/shared/utils/logger.js';
 import { QRCodeService } from '../lib/domain/services/QRCodeService.js';
 import { ValidationError, ProfileError } from '../lib/domain/errors.js';
 
-export default async function handler(req: NextRequest) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
   const identifier = getRateLimitIdentifier(req);
 
@@ -18,12 +18,12 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Origin not allowed',
         code: 'CORS_ERROR'
-      }, 403, req);
+      }, 403, req, res);
     }
 
     // Tratar OPTIONS (preflight)
     if (req.method === 'OPTIONS') {
-      return handleCorsPreFlight(req);
+      return handleCorsPreFlight(req, res);
     }
 
     // Validar método HTTP
@@ -32,7 +32,7 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Method not allowed',
         code: 'METHOD_NOT_ALLOWED'
-      }, 405, req);
+      }, 405, req, res);
     }
 
     // Validar environment
@@ -43,7 +43,7 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Server configuration error',
         code: 'CONFIG_ERROR'
-      }, 500, req);
+      }, 500, req, res);
     }
 
     // Rate limiting
@@ -55,23 +55,23 @@ export default async function handler(req: NextRequest) {
         retryAfter: rateLimitResult.retryAfter
       });
 
-      const response = createCorsResponse({
+      createCorsResponse({
         success: false,
         error: 'Rate limit exceeded',
         message: rateLimitResult.message,
         code: 'RATE_LIMIT_EXCEEDED',
         retryAfter: rateLimitResult.retryAfter
-      }, 429, req);
+      }, 429, req, res);
 
       // Adicionar headers de rate limit
-      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-      response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
+      res.setHeader('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      res.setHeader('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      res.setHeader('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
       if (rateLimitResult.retryAfter) {
-        response.headers.set('Retry-After', rateLimitResult.retryAfter.toString());
+        res.setHeader('Retry-After', rateLimitResult.retryAfter.toString());
       }
 
-      return response;
+      return;
     }
 
     // Obter profileId da URL ou body
@@ -79,14 +79,14 @@ export default async function handler(req: NextRequest) {
     let regenerate = false;
 
     if (req.method === 'GET') {
-      const url = new URL(req.url);
+      const url = new URL(req.url, `http://${req.headers.host}`);
       profileId = url.searchParams.get('profileId') || '';
       regenerate = url.searchParams.get('regenerate') === 'true';
     } else {
       // POST
       let body: unknown;
       try {
-        body = await req.json();
+        body = req.body;
       } catch (error) {
         logger.warn('Invalid JSON in request body', { error: error instanceof Error ? error.message : 'Unknown' });
         return createCorsResponse({
@@ -94,7 +94,7 @@ export default async function handler(req: NextRequest) {
           error: 'Invalid JSON',
           message: 'Request body must be valid JSON',
           code: 'INVALID_JSON'
-        }, 400, req);
+        }, 400, req, res);
       }
 
       // Type guard para body
@@ -114,7 +114,7 @@ export default async function handler(req: NextRequest) {
         error: 'Missing profile ID',
         message: 'profileId é obrigatório',
         code: 'MISSING_PROFILE_ID'
-      }, 400, req);
+      }, 400, req, res);
     }
 
     if (!/^profile_\d+_[a-z0-9]+$/.test(profileId)) {
@@ -123,7 +123,7 @@ export default async function handler(req: NextRequest) {
         error: 'Invalid profile ID format',
         message: 'Formato de profileId inválido',
         code: 'INVALID_PROFILE_ID'
-      }, 400, req);
+      }, 400, req, res);
     }
 
     logger.qrCodeLog(regenerate ? 'regenerate_requested' : 'generate_requested', profileId, { 
@@ -178,7 +178,7 @@ export default async function handler(req: NextRequest) {
       });
 
       // Criar resposta de sucesso
-      const response = createCorsResponse({
+      createCorsResponse({
         success: true,
         message: `QR Code ${action === 'existing' ? 'recuperado' : action === 'regenerated' ? 'regenerado' : 'gerado'} com sucesso`,
         data: {
@@ -194,14 +194,14 @@ export default async function handler(req: NextRequest) {
           medicalInfo: qrData.medicalInfo,
           generatedAt: qrData.generatedAt
         }
-      }, 200, req);
+      }, 200, req, res);
 
       // Adicionar headers de rate limit
-      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-      response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
+      res.setHeader('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      res.setHeader('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      res.setHeader('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
 
-      return response;
+      return;
 
     } catch (serviceError) {
       if (serviceError instanceof ProfileError) {
@@ -223,7 +223,7 @@ export default async function handler(req: NextRequest) {
           message,
           code: serviceError.code,
           context: serviceError.context
-        }, statusCode, req);
+        }, statusCode, req, res);
       }
 
       throw serviceError; // Re-lançar para tratamento genérico
@@ -242,7 +242,7 @@ export default async function handler(req: NextRequest) {
         message: error.message,
         code: error.code,
         context: error.context
-      }, 400, req);
+      }, 400, req, res);
     }
 
     if (error instanceof ProfileError) {
@@ -252,7 +252,7 @@ export default async function handler(req: NextRequest) {
         message: error.message,
         code: error.code,
         context: error.context
-      }, 404, req);
+      }, 404, req, res);
     }
 
     // Erro genérico
@@ -262,6 +262,6 @@ export default async function handler(req: NextRequest) {
       message: 'Erro interno do servidor',
       code: 'INTERNAL_SERVER_ERROR',
       details: 'Ocorreu um erro inesperado ao gerar o QR Code.'
-    }, 500, req);
+    }, 500, req, res);
   }
 }

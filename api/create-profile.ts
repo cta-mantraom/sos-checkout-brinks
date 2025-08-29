@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { CreateProfileUseCase } from '../lib/application/use-cases/CreateProfileUseCase.js';
 import { ProfileService } from '../lib/domain/services/ProfileService.js';
 import { FirebaseProfileRepository } from '../lib/infrastructure/repositories/FirebaseProfileRepository.js';
@@ -9,24 +9,21 @@ import { initializeFirebaseFromEnv } from '../lib/infrastructure/firebase/Fireba
 import { logger } from '../lib/shared/utils/logger.js';
 import { ValidationError, ProfileError } from '../lib/domain/errors.js';
 
-export default async function handler(req: NextRequest) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
   try {
     // Validar método HTTP
     if (req.method !== 'POST') {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'Method not allowed',
-          code: 'METHOD_NOT_ALLOWED'
-        },
-        { status: 405 }
-      );
+      return res.status(405).json({
+        success: false,
+        error: 'Method not allowed',
+        code: 'METHOD_NOT_ALLOWED'
+      });
     }
 
     // Parsear body da requisição
-    const body = await req.json();
+    const body = req.body;
     logger.info('Create profile request received', { body });
 
     // Inicializar dependências
@@ -59,7 +56,7 @@ export default async function handler(req: NextRequest) {
     });
 
     // Retornar sucesso
-    return NextResponse.json({
+    return res.status(201).json({
       success: true,
       message: result.message,
       data: {
@@ -72,7 +69,7 @@ export default async function handler(req: NextRequest) {
           createdAt: result.profile.getCreatedAt()
         }
       }
-    }, { status: 201 });
+    });
 
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -81,31 +78,31 @@ export default async function handler(req: NextRequest) {
 
     // Tratar erros específicos
     if (error instanceof ValidationError) {
-      return NextResponse.json({
+      return res.status(400).json({
         success: false,
         error: 'Dados inválidos',
         message: error.message,
         code: error.code,
         context: error.context
-      }, { status: 400 });
+      });
     }
 
     if (error instanceof ProfileError) {
-      return NextResponse.json({
+      return res.status(409).json({
         success: false,
         error: 'Erro no perfil',
         message: error.message,
         code: error.code,
         context: error.context
-      }, { status: 409 });
+      });
     }
 
     // Erro genérico
-    return NextResponse.json({
+    return res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: 'Erro interno do servidor',
       code: 'INTERNAL_SERVER_ERROR'
-    }, { status: 500 });
+    });
   }
 }

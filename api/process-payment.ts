@@ -1,11 +1,11 @@
-import { NextRequest } from 'next/server';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeServices, validateEnvironment } from './_utils/serviceFactory.js';
 import { createCorsResponse, handleCorsPreFlight, validateCorsOrigin } from './_utils/cors.js';
 import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_CONFIGS } from './_utils/rateLimit.js';
 import { logger } from '../lib/shared/utils/logger.js';
 import { ValidationError, PaymentError, ProfileError } from '../lib/domain/errors.js';
 
-export default async function handler(req: NextRequest) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
   const identifier = getRateLimitIdentifier(req);
 
@@ -16,12 +16,12 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Origin not allowed',
         code: 'CORS_ERROR'
-      }, 403, req);
+      }, 403, req, res);
     }
 
     // Tratar OPTIONS (preflight)
     if (req.method === 'OPTIONS') {
-      return handleCorsPreFlight(req);
+      return handleCorsPreFlight(req, res);
     }
 
     // Validar método HTTP
@@ -30,7 +30,7 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Method not allowed',
         code: 'METHOD_NOT_ALLOWED'
-      }, 405, req);
+      }, 405, req, res);
     }
 
     // Validar environment
@@ -41,7 +41,7 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Server configuration error',
         code: 'CONFIG_ERROR'
-      }, 500, req);
+      }, 500, req, res);
     }
 
     // Rate limiting
@@ -53,29 +53,29 @@ export default async function handler(req: NextRequest) {
         retryAfter: rateLimitResult.retryAfter
       });
 
-      const response = createCorsResponse({
+      createCorsResponse({
         success: false,
         error: 'Rate limit exceeded',
         message: rateLimitResult.message,
         code: 'RATE_LIMIT_EXCEEDED',
         retryAfter: rateLimitResult.retryAfter
-      }, 429, req);
+      }, 429, req, res);
 
       // Adicionar headers de rate limit
-      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-      response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
+      res.setHeader('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      res.setHeader('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      res.setHeader('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
       if (rateLimitResult.retryAfter) {
-        response.headers.set('Retry-After', rateLimitResult.retryAfter.toString());
+        res.setHeader('Retry-After', rateLimitResult.retryAfter.toString());
       }
 
-      return response;
+      return;
     }
 
     // Parsear body da requisição
     let body: unknown;
     try {
-      body = await req.json();
+      body = req.body;
     } catch (error) {
       logger.warn('Invalid JSON in request body', { error: error instanceof Error ? error.message : 'Unknown' });
       return createCorsResponse({
@@ -83,7 +83,7 @@ export default async function handler(req: NextRequest) {
         error: 'Invalid JSON',
         message: 'Request body must be valid JSON',
         code: 'INVALID_JSON'
-      }, 400, req);
+      }, 400, req, res);
     }
 
     // Type guard para body
@@ -116,7 +116,7 @@ export default async function handler(req: NextRequest) {
     });
 
     // Criar resposta de sucesso
-    const response = createCorsResponse({
+    createCorsResponse({
       success: true,
       message: result.paymentResult.message,
       data: {
@@ -145,14 +145,14 @@ export default async function handler(req: NextRequest) {
           status: result.paymentResult.status
         }
       }
-    }, result.paymentResult.success ? 200 : 402, req);
+    }, result.paymentResult.success ? 200 : 402, req, res);
 
     // Adicionar headers de rate limit
-    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-    response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
+    res.setHeader('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    res.setHeader('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    res.setHeader('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
 
-    return response;
+    return;
 
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -168,7 +168,7 @@ export default async function handler(req: NextRequest) {
         code: error.code,
         context: error.context,
         details: 'Verifique os dados enviados e tente novamente'
-      }, 400, req);
+      }, 400, req, res);
     }
 
     if (error instanceof PaymentError) {
@@ -190,7 +190,7 @@ export default async function handler(req: NextRequest) {
         code: error.code,
         context: error.context,
         details: 'Erro no processamento do pagamento'
-      }, statusCode, req);
+      }, statusCode, req, res);
     }
 
     if (error instanceof ProfileError) {
@@ -201,7 +201,7 @@ export default async function handler(req: NextRequest) {
         code: error.code,
         context: error.context,
         details: 'Erro relacionado ao perfil médico'
-      }, 404, req);
+      }, 404, req, res);
     }
 
     // Erro genérico
@@ -211,6 +211,6 @@ export default async function handler(req: NextRequest) {
       message: 'Erro interno do servidor',
       code: 'INTERNAL_SERVER_ERROR',
       details: 'Ocorreu um erro inesperado. Tente novamente em alguns instantes.'
-    }, 500, req);
+    }, 500, req, res);
   }
 }

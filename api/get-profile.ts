@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeServices, validateEnvironment } from './_utils/serviceFactory.js';
 import { createCorsResponse, handleCorsPreFlight, validateCorsOrigin } from './_utils/cors.js';
 import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_CONFIGS } from './_utils/rateLimit.js';
@@ -56,7 +56,7 @@ interface ProfileResponseData {
   paymentError?: string;
 }
 
-export default async function handler(req: NextRequest) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
   const identifier = getRateLimitIdentifier(req);
 
@@ -67,12 +67,12 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Origin not allowed',
         code: 'CORS_ERROR'
-      }, 403, req);
+      }, 403, req, res);
     }
 
     // Tratar OPTIONS (preflight)
     if (req.method === 'OPTIONS') {
-      return handleCorsPreFlight(req);
+      return handleCorsPreFlight(req, res);
     }
 
     // Validar método HTTP
@@ -81,7 +81,7 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Method not allowed',
         code: 'METHOD_NOT_ALLOWED'
-      }, 405, req);
+      }, 405, req, res);
     }
 
     // Validar environment
@@ -92,7 +92,7 @@ export default async function handler(req: NextRequest) {
         success: false,
         error: 'Server configuration error',
         code: 'CONFIG_ERROR'
-      }, 500, req);
+      }, 500, req, res);
     }
 
     // Rate limiting
@@ -104,27 +104,27 @@ export default async function handler(req: NextRequest) {
         retryAfter: rateLimitResult.retryAfter
       });
 
-      const response = createCorsResponse({
+      createCorsResponse({
         success: false,
         error: 'Rate limit exceeded',
         message: rateLimitResult.message,
         code: 'RATE_LIMIT_EXCEEDED',
         retryAfter: rateLimitResult.retryAfter
-      }, 429, req);
+      }, 429, req, res);
 
       // Adicionar headers de rate limit
-      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-      response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
+      res.setHeader('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      res.setHeader('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      res.setHeader('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
       if (rateLimitResult.retryAfter) {
-        response.headers.set('Retry-After', rateLimitResult.retryAfter.toString());
+        res.setHeader('Retry-After', rateLimitResult.retryAfter.toString());
       }
 
-      return response;
+      return;
     }
 
     // Obter parâmetros da URL
-    const url = new URL(req.url);
+    const url = new URL(req.url, `http://${req.headers.host}`);
     const profileId = url.searchParams.get('id') || url.searchParams.get('profileId') || '';
     const includeQR = url.searchParams.get('includeQR') === 'true';
     const includePayments = url.searchParams.get('includePayments') === 'true';
@@ -137,7 +137,7 @@ export default async function handler(req: NextRequest) {
         error: 'Missing profile ID',
         message: 'Parâmetro "id" ou "profileId" é obrigatório',
         code: 'MISSING_PROFILE_ID'
-      }, 400, req);
+      }, 400, req, res);
     }
 
     if (!/^profile_\d+_[a-z0-9]+$/.test(profileId)) {
@@ -146,7 +146,7 @@ export default async function handler(req: NextRequest) {
         error: 'Invalid profile ID format',
         message: 'Formato de profileId inválido',
         code: 'INVALID_PROFILE_ID'
-      }, 400, req);
+      }, 400, req, res);
     }
 
     logger.profileLog('get_requested', profileId, { 
@@ -169,7 +169,7 @@ export default async function handler(req: NextRequest) {
         error: 'Profile not found',
         message: 'Perfil não encontrado',
         code: 'PROFILE_NOT_FOUND'
-      }, 404, req);
+      }, 404, req, res);
     }
 
     // Preparar dados de resposta baseado no formato
@@ -295,7 +295,7 @@ export default async function handler(req: NextRequest) {
     });
 
     // Criar resposta de sucesso
-    const response = createCorsResponse({
+    createCorsResponse({
       success: true,
       message: 'Perfil recuperado com sucesso',
       data: responseData,
@@ -305,18 +305,18 @@ export default async function handler(req: NextRequest) {
         includePayments,
         retrievedAt: new Date().toISOString()
       }
-    }, 200, req);
+    }, 200, req, res);
 
     // Adicionar headers de rate limit
-    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-    response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
+    res.setHeader('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    res.setHeader('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    res.setHeader('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
 
     // Adicionar cache headers para perfis (cache curto para dados médicos)
-    response.headers.set('Cache-Control', 'private, max-age=300'); // 5 minutos
-    response.headers.set('ETag', `"${profile.getId()}-${profile.getUpdatedAt()?.getTime()}"`);
+    res.setHeader('Cache-Control', 'private, max-age=300'); // 5 minutos
+    res.setHeader('ETag', `"${profile.getId()}-${profile.getUpdatedAt()?.getTime()}"`);
 
-    return response;
+    return;
 
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -331,7 +331,7 @@ export default async function handler(req: NextRequest) {
         message: error.message,
         code: error.code,
         context: error.context
-      }, 400, req);
+      }, 400, req, res);
     }
 
     if (error instanceof ProfileError) {
@@ -347,7 +347,7 @@ export default async function handler(req: NextRequest) {
         message: error.message,
         code: error.code,
         context: error.context
-      }, statusCode, req);
+      }, statusCode, req, res);
     }
 
     // Erro genérico
@@ -357,6 +357,6 @@ export default async function handler(req: NextRequest) {
       message: 'Erro interno do servidor',
       code: 'INTERNAL_SERVER_ERROR',
       details: 'Ocorreu um erro inesperado ao buscar o perfil.'
-    }, 500, req);
+    }, 500, req, res);
   }
 }

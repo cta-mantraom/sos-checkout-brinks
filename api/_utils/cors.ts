@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 interface CorsOptions {
   allowedOrigins?: string[];
@@ -31,10 +31,10 @@ const DEFAULT_CORS_OPTIONS: CorsOptions = {
 };
 
 export function addCorsHeaders(
-  response: NextResponse,
+  res: VercelResponse,
   origin?: string,
   options: CorsOptions = DEFAULT_CORS_OPTIONS
-): NextResponse {
+): void {
   const { allowedOrigins, allowedMethods, allowedHeaders, allowCredentials, maxAge } = {
     ...DEFAULT_CORS_OPTIONS,
     ...options
@@ -52,52 +52,51 @@ export function addCorsHeaders(
     });
 
     if (isAllowed) {
-      response.headers.set('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Origin', origin);
     }
   }
 
   // Definir outros headers CORS
-  response.headers.set('Access-Control-Allow-Methods', allowedMethods?.join(', ') || '');
-  response.headers.set('Access-Control-Allow-Headers', allowedHeaders?.join(', ') || '');
+  res.setHeader('Access-Control-Allow-Methods', allowedMethods?.join(', ') || '');
+  res.setHeader('Access-Control-Allow-Headers', allowedHeaders?.join(', ') || '');
   
   if (allowCredentials) {
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
 
   if (maxAge) {
-    response.headers.set('Access-Control-Max-Age', maxAge.toString());
+    res.setHeader('Access-Control-Max-Age', maxAge.toString());
   }
 
   // Headers de segurança adicionais
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-
-  return response;
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 }
 
-export function handleCorsPreFlight(req: NextRequest, options?: CorsOptions): NextResponse {
-  const origin = req.headers.get('origin');
-  const response = new NextResponse(null, { status: 200 });
+export function handleCorsPreFlight(req: VercelRequest, res: VercelResponse, options?: CorsOptions): void {
+  const origin = req.headers.origin as string | undefined;
   
-  return addCorsHeaders(response, origin || undefined, options);
+  addCorsHeaders(res, origin, options);
+  res.status(200).end();
 }
 
 export function createCorsResponse(
   data: unknown,
   status: number,
-  req: NextRequest,
+  req: VercelRequest,
+  res: VercelResponse,
   options?: CorsOptions
-): NextResponse {
-  const origin = req.headers.get('origin');
-  const response = NextResponse.json(data, { status });
+): void {
+  const origin = req.headers.origin as string | undefined;
   
-  return addCorsHeaders(response, origin || undefined, options);
+  addCorsHeaders(res, origin, options);
+  res.status(status).json(data);
 }
 
-export function validateCorsOrigin(req: NextRequest, options?: CorsOptions): boolean {
-  const origin = req.headers.get('origin');
+export function validateCorsOrigin(req: VercelRequest, options?: CorsOptions): boolean {
+  const origin = req.headers.origin as string | undefined;
   
   if (!origin) return true; // Permitir requisições sem origem (como Postman)
   
