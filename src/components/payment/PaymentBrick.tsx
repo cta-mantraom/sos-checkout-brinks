@@ -147,24 +147,71 @@ export function PaymentBrick({
               setIsLoading(false);
             },
             onSubmit: async (data: unknown) => {
-              const paymentData = data as PaymentSubmissionData;
-              const { selectedPaymentMethod, formData } = paymentData;
+              console.log('Dados brutos do MercadoPago Brick:', JSON.stringify(data, null, 2));
+              
+              // Extrair dados diretamente da estrutura do Brick
+              const brickData = data as any;
+              
               try {
+                // O MercadoPago pode enviar dados em diferentes formatos
+                // Vamos verificar todas as possibilidades
+                let paymentMethodId = brickData.payment_method_id || 
+                                     brickData.paymentMethodId ||
+                                     brickData.payment_method ||
+                                     brickData.selectedPaymentMethod?.id ||
+                                     brickData.formData?.payment_method_id ||
+                                     brickData.formData?.payment_method;
+                
+                // Se ainda não temos paymentMethodId, talvez seja PIX
+                // PIX pode vir sem ID quando selecionado
+                const isPossiblyPix = !paymentMethodId && !brickData.token;
+                
+                // Mapear tipos de pagamento do MercadoPago para nosso backend
+                let paymentMethod: 'credit_card' | 'debit_card' | 'pix' | 'boleto' = 'pix';
+                
+                // Identificar o método de pagamento baseado no ID do MercadoPago
+                if (isPossiblyPix || !paymentMethodId || paymentMethodId === 'pix') {
+                  paymentMethod = 'pix';
+                  paymentMethodId = 'pix';
+                } else if (paymentMethodId.includes('debit') || paymentMethodId.includes('debito')) {
+                  paymentMethod = 'debit_card';
+                } else if (paymentMethodId === 'bolbradesco' || paymentMethodId.includes('boleto')) {
+                  paymentMethod = 'boleto';
+                } else if (paymentMethodId && brickData.token) {
+                  // Se tem token, é cartão
+                  paymentMethod = 'credit_card';
+                } else if (paymentMethodId) {
+                  // Por padrão, assume cartão de crédito para outros IDs
+                  paymentMethod = 'credit_card';
+                }
+                
+                console.log('Método de pagamento identificado:', { 
+                  paymentMethodId, 
+                  paymentMethod,
+                  hasToken: !!brickData.token,
+                  isPossiblyPix 
+                });
+                
                 // Transformar dados do MercadoPago para formato esperado pelo backend
                 const transformedData = {
                   profileId,
                   amount,
-                  paymentMethodId: selectedPaymentMethod.id,
-                  paymentMethod: selectedPaymentMethod.type, // 'pix', 'credit_card', etc
-                  token: formData.token,
-                  installments: formData.installments || 1,
+                  paymentMethodId: paymentMethodId || 'pix',
+                  paymentMethod: paymentMethod,
+                  token: brickData.token || brickData.formData?.token,
+                  installments: brickData.installments || brickData.formData?.installments || 1,
                   payer: {
-                    email: formData.payer?.email,
-                    identification: formData.payer?.identification
+                    email: brickData.payer?.email || brickData.formData?.payer?.email,
+                    identification: brickData.payer?.identification || brickData.formData?.payer?.identification
                   }
                 };
 
-                console.log('Enviando dados de pagamento:', transformedData);
+                // Validações adicionais
+                if ((paymentMethod === 'credit_card' || paymentMethod === 'debit_card') && !transformedData.token) {
+                  console.warn('Token ausente para pagamento com cartão');
+                }
+                
+                console.log('Dados transformados para envio:', transformedData);
 
                 // Enviar dados para o backend processar o pagamento
                 const response = await fetch('/api/process-payment', {
@@ -184,7 +231,8 @@ export function PaymentBrick({
                 console.log('Resposta do backend:', result);
 
                 // Verificar se é PIX e tem QR Code
-                if (selectedPaymentMethod.type === 'pix' && result.data?.mercadopago?.pixData) {
+                const isPix = paymentMethod === 'pix';
+                if (isPix && result.data?.mercadopago?.pixData) {
                   console.log('PIX QR Code recebido:', result.data.mercadopago.pixData);
                 }
 
@@ -198,7 +246,7 @@ export function PaymentBrick({
                     break;
                   case 'pending':
                     // Para PIX, redirecionar para página de status com QR Code
-                    if (selectedPaymentMethod.type === 'pix' && paymentId) {
+                    if (isPix && paymentId) {
                       console.log('Redirecionando para página de status PIX...');
                       navigate(`/payment-status?paymentId=${paymentId}&method=pix`);
                     } else {
