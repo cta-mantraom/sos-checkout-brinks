@@ -3,9 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { QRCodeDisplay } from '@/components/qr/QRCodeDisplay';
 import { useQRCode, useGenerateQRCode, useRegenerateQRCode } from '@/hooks/useQRCode';
 import { usePayment } from '@/hooks/usePayment';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LoadingCard } from '@/components/common/LoadingStates';
 import { FormErrorDisplay } from '@/components/common/ErrorBoundary';
 import { 
@@ -20,7 +19,6 @@ import {
 } from 'lucide-react';
 import { SubscriptionType } from '@/schemas/payment';
 import { SUBSCRIPTION_DURATIONS } from '@/lib/constants/prices';
-import { cn } from '@/lib/utils';
 
 interface LocationState {
   profileId?: string;
@@ -47,7 +45,7 @@ export function SuccessPage() {
 
   // Query hooks
   const { data: qrData, isLoading: qrLoading, error: qrError } = useQRCode(profileId);
-  const { data: paymentData, isLoading: paymentLoading } = usePayment(paymentId);
+  const { data: paymentData } = usePayment(paymentId);
   const generateQRMutation = useGenerateQRCode();
   const regenerateQRMutation = useRegenerateQRCode();
 
@@ -251,7 +249,6 @@ export function SuccessPage() {
                     <Button 
                       onClick={() => {
                         // Implementar download do QR Code
-                        const canvas = document.createElement('canvas');
                         // ... lógica de download
                       }}
                       variant="outline" 

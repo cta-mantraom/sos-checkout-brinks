@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PaymentFormData, SubscriptionType } from '@/schemas/payment';
+import { SubscriptionType } from '@/schemas/payment';
 import { SUBSCRIPTION_PRICES } from '@/lib/constants/prices';
 
 interface PaymentData {
@@ -29,11 +29,6 @@ interface PaymentResponse {
   expiresAt?: string;
 }
 
-interface MercadoPagoBrick {
-  mount: (containerId: string) => void;
-  unmount: () => void;
-  update: (data: any) => void;
-}
 
 declare global {
   interface Window {
@@ -76,7 +71,7 @@ export function usePayment(paymentId?: string) {
     enabled: !!paymentId,
     refetchInterval: (data) => {
       // Continua polling se o pagamento estiver pendente
-      return data?.status === 'pending' ? 5000 : false;
+      return data?.data?.status === 'pending' ? 5000 : false;
     },
     staleTime: 0, // Sempre buscar status atualizado
     retry: 3,

@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PaymentBrick } from '@/components/payment/PaymentBrick';
 import { usePaymentCalculations, useProcessPayment } from '@/hooks/usePayment';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,9 +14,8 @@ import {
   CheckCircle,
   AlertTriangle 
 } from 'lucide-react';
-import { SUBSCRIPTION_PRICES, SUBSCRIPTION_DURATIONS } from '@/lib/constants/prices';
+import { SUBSCRIPTION_DURATIONS } from '@/lib/constants/prices';
 import { SubscriptionType } from '@/schemas/payment';
-import { cn } from '@/lib/utils';
 
 interface LocationState {
   profileId?: string;
@@ -81,7 +80,7 @@ export function CheckoutPage() {
 
   const currentPlan = planInfo[selectedPlan];
 
-  const handlePaymentSuccess = (paymentData: any) => {
+  const handlePaymentSuccess = (paymentData: { id: string }) => {
     navigate('/success', {
       state: {
         profileId,
@@ -92,11 +91,11 @@ export function CheckoutPage() {
     });
   };
 
-  const handlePaymentError = (error: any) => {
+  const handlePaymentError = (error: Error | unknown) => {
     console.error('Erro no pagamento:', error);
   };
 
-  const handlePaymentPending = (paymentData: any) => {
+  const handlePaymentPending = (paymentData: { id: string }) => {
     navigate('/success', {
       state: {
         profileId,

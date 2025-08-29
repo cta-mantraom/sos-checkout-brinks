@@ -6,7 +6,7 @@ import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface ErrorContextType {
-  reportError: (error: Error, errorInfo?: any) => void;
+  reportError: (error: Error, errorInfo?: Record<string, unknown>) => void;
   clearError: () => void;
 }
 
@@ -98,7 +98,7 @@ function RouteErrorFallback({ error, resetError }: { error: Error; resetError: (
 export function ErrorProvider({ children }: ErrorProviderProps) {
   const [globalError, setGlobalError] = React.useState<Error | null>(null);
 
-  const reportError = React.useCallback((error: Error, errorInfo?: any) => {
+  const reportError = React.useCallback((error: Error, errorInfo?: Record<string, unknown>) => {
     console.error('Erro reportado:', error, errorInfo);
     
     // Aqui você pode integrar com serviços de monitoramento

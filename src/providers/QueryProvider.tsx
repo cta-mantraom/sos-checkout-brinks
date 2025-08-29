@@ -1,5 +1,5 @@
 import React from 'react';
-import { QueryClient, QueryClientProvider, DefaultOptions } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, DefaultOptions, useQueryClient as useRQQueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 // Configurações padrão para queries
@@ -31,27 +31,7 @@ const queryConfig: DefaultOptions = {
 function createQueryClient() {
   return new QueryClient({
     defaultOptions: queryConfig,
-    logger: {
-      log: (message) => {
-        if (import.meta.env.DEV) {
-          console.log('[React Query]', message);
-        }
-      },
-      warn: (message) => {
-        if (import.meta.env.DEV) {
-          console.warn('[React Query]', message);
-        }
-      },
-      error: (error) => {
-        console.error('[React Query]', error);
-        
-        // Aqui você pode integrar com serviços de monitoramento
-        // como Sentry, LogRocket, etc.
-        if (import.meta.env.PROD) {
-          // reportError(error);
-        }
-      },
-    },
+    // Removida propriedade logger que não existe mais na versão atual do React Query
   });
 }
 
@@ -77,8 +57,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
       {import.meta.env.DEV && (
         <ReactQueryDevtools 
           initialIsOpen={false} 
-          position="bottom-right"
-          buttonPosition="bottom-right"
+          position="bottom-left"
         />
       )}
     </QueryClientProvider>
@@ -87,11 +66,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
 
 // Hook para acessar o query client
 export function useQueryClient() {
-  const client = React.useContext(QueryClientProvider.context);
-  if (!client) {
-    throw new Error('useQueryClient must be used within QueryProvider');
-  }
-  return client;
+  return useRQQueryClient();
 }
 
 // Função para invalidar queries específicas

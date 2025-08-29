@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MedicalForm } from '@/components/forms/MedicalForm';
 import { useCreateProfile } from '@/hooks/useProfile';
@@ -7,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Shield, Clock, FileText } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export function MedicalFormPage() {
   const navigate = useNavigate();

@@ -1,8 +1,7 @@
-import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/useProfile';
 import { useQRCode } from '@/hooks/useQRCode';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingCard, LoadingError } from '@/components/common/LoadingStates';
@@ -22,7 +21,6 @@ import {
   Shield,
   Clock
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
