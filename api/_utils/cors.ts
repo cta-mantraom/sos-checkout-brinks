@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getCorsConfig, isOriginAllowed } from './corsConfig.js';
 
 interface CorsOptions {
   allowedOrigins?: string[];
@@ -8,36 +9,27 @@ interface CorsOptions {
   maxAge?: number;
 }
 
-const DEFAULT_CORS_OPTIONS: CorsOptions = {
-  allowedOrigins: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'https://sos-checkout-brinks.vercel.app',
-    'https://sos-checkout-brinks-git-main.vercel.app',
-    'https://*.vercel.app'
-  ],
-  allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'Accept',
-    'Origin',
-    'Cache-Control',
-    'X-File-Name'
-  ],
-  allowCredentials: true,
-  maxAge: 86400 // 24 horas
-};
+// Usar configuração centralizada com lazy loading
+function getDefaultCorsOptions(): CorsOptions {
+  const config = getCorsConfig();
+  return {
+    allowedOrigins: config.allowedOrigins,
+    allowedMethods: config.allowedMethods,
+    allowedHeaders: config.allowedHeaders,
+    allowCredentials: config.allowCredentials,
+    maxAge: config.maxAge
+  };
+}
 
 export function addCorsHeaders(
   res: VercelResponse,
   origin?: string,
-  options: CorsOptions = DEFAULT_CORS_OPTIONS
+  options?: CorsOptions
 ): void {
+  const defaultOptions = getDefaultCorsOptions();
   const { allowedOrigins, allowedMethods, allowedHeaders, allowCredentials, maxAge } = {
-    ...DEFAULT_CORS_OPTIONS,
-    ...options
+    ...defaultOptions,
+    ...(options || {})
   };
 
   // Verificar origem permitida
@@ -100,16 +92,19 @@ export function validateCorsOrigin(req: VercelRequest, options?: CorsOptions): b
   
   if (!origin) return true; // Permitir requisições sem origem (como Postman)
   
-  const { allowedOrigins } = { ...DEFAULT_CORS_OPTIONS, ...options };
+  // Usar função centralizada para verificar origem
+  if (options?.allowedOrigins) {
+    const { allowedOrigins } = options;
+    return allowedOrigins.some(allowedOrigin => {
+      if (allowedOrigin === '*') return true;
+      if (allowedOrigin.includes('*')) {
+        const regex = new RegExp(allowedOrigin.replace(/\*/g, '.*'));
+        return regex.test(origin);
+      }
+      return allowedOrigin === origin;
+    });
+  }
   
-  if (!allowedOrigins) return true;
-  
-  return allowedOrigins.some(allowedOrigin => {
-    if (allowedOrigin === '*') return true;
-    if (allowedOrigin.includes('*')) {
-      const regex = new RegExp(allowedOrigin.replace(/\*/g, '.*'));
-      return regex.test(origin);
-    }
-    return allowedOrigin === origin;
-  });
+  // Usar configuração padrão com validação Zod
+  return isOriginAllowed(origin);
 }
