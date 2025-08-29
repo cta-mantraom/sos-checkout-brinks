@@ -142,7 +142,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           success: result.paymentResult.success,
           message: result.paymentResult.message,
           paymentId: result.paymentResult.paymentId,
-          status: result.paymentResult.status
+          status: result.paymentResult.status,
+          // Incluir dados do PIX se disponíveis
+          pixData: result.paymentResult.pixQrCode ? {
+            qrCode: result.paymentResult.pixQrCode,
+            qrCodeBase64: result.paymentResult.pixQrCodeBase64
+          } : undefined
         }
       }
     }, result.paymentResult.success ? 200 : 402, req, res);

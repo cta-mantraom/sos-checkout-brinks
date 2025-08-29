@@ -28,7 +28,7 @@ export interface MercadoPagoPaymentDetails {
 }
 
 export interface IMercadoPagoClient {
-  createPayment(payment: Payment): Promise<{
+  createPayment(payment: Payment, payerEmail?: string): Promise<{
     id: string;
     status: string;
     status_detail: string;

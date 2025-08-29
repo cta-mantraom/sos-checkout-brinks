@@ -109,14 +109,34 @@ export class MercadoPagoClient implements IMercadoPagoClient {
         }
       }
       
-      return {
+      // Retornar dados específicos por método de pagamento
+      const result: {
+        id: string;
+        status: string;
+        status_detail: string;
+        pixQrCode?: string;
+        pixQrCodeBase64?: string;
+        boletoUrl?: string;
+      } = {
         id: response.id,
         status: response.status,
-        status_detail: response.status_detail,
-        pixQrCode: response.point_of_interaction?.transaction_data?.qr_code,
-        pixQrCodeBase64: response.point_of_interaction?.transaction_data?.qr_code_base64,
-        boletoUrl: response.point_of_interaction?.transaction_data?.ticket_url
+        status_detail: response.status_detail
       };
+      
+      // Para PIX, incluir apenas dados de QR Code
+      if (payment.getPaymentMethod() === 'pix') {
+        result.pixQrCode = response.point_of_interaction?.transaction_data?.qr_code;
+        result.pixQrCodeBase64 = response.point_of_interaction?.transaction_data?.qr_code_base64;
+        // NÃO incluir boletoUrl para PIX
+      }
+      
+      // Para boleto, incluir apenas URL do boleto
+      if (payment.getPaymentMethod() === 'boleto') {
+        result.boletoUrl = response.point_of_interaction?.transaction_data?.ticket_url;
+        // NÃO incluir QR Code para boleto
+      }
+      
+      return result;
 
     } catch (error) {
       console.error('Erro ao criar pagamento no MercadoPago:', error);
