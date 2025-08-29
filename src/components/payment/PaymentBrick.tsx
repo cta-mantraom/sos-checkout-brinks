@@ -10,17 +10,16 @@ import { CreditCard, Smartphone, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
-// Interfaces específicas para MercadoPago Payment Brick
-interface PaymentMethodData {
-  type: 'credit_card' | 'debit_card' | 'ticket' | 'pix' | 'bank_transfer';
-  id: string;
-}
-
-interface PaymentFormData {
-  token?: string;
-  issuer_id?: string;
+// Interface para dados brutos do MercadoPago Brick
+interface MercadoPagoBrickData {
   payment_method_id?: string;
-  transaction_amount: number;
+  paymentMethodId?: string;
+  payment_method?: string;
+  selectedPaymentMethod?: {
+    id?: string;
+    type?: string;
+  };
+  token?: string;
   installments?: number;
   payer?: {
     email?: string;
@@ -29,11 +28,19 @@ interface PaymentFormData {
       number: string;
     };
   };
-}
-
-interface PaymentSubmissionData {
-  selectedPaymentMethod: PaymentMethodData;
-  formData: PaymentFormData;
+  formData?: {
+    payment_method_id?: string;
+    payment_method?: string;
+    token?: string;
+    installments?: number;
+    payer?: {
+      email?: string;
+      identification?: {
+        type: string;
+        number: string;
+      };
+    };
+  };
 }
 
 interface PaymentError {
@@ -149,8 +156,8 @@ export function PaymentBrick({
             onSubmit: async (data: unknown) => {
               console.log('Dados brutos do MercadoPago Brick:', JSON.stringify(data, null, 2));
               
-              // Extrair dados diretamente da estrutura do Brick
-              const brickData = data as any;
+              // Validar e tipar dados do Brick
+              const brickData = data as MercadoPagoBrickData;
               
               try {
                 // O MercadoPago pode enviar dados em diferentes formatos

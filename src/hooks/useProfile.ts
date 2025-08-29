@@ -73,9 +73,19 @@ async function createProfile(data: MedicalFormData, subscriptionPlan: 'basic' | 
     weight: data.weight,
     height: data.height,
     allergies: data.allergies,
-    medications: data.medications,
+    // Garantir que medications tem todas as propriedades obrigatórias
+    medications: data.medications.map(med => ({
+      name: med.name || '',
+      dosage: med.dosage || '',
+      frequency: med.frequency || ''
+    })),
     medicalConditions: data.medicalConditions,
-    emergencyContacts: data.emergencyContacts,
+    // Garantir que emergencyContacts tem todas as propriedades obrigatórias
+    emergencyContacts: data.emergencyContacts.map(contact => ({
+      name: contact.name || '',
+      relationship: contact.relationship || '',
+      phone: contact.phone || ''
+    })),
     doctor: data.doctor,
     healthInsurance: data.healthInsurance,
     observations: data.observations,
