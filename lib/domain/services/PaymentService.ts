@@ -72,6 +72,11 @@ export class PaymentService implements IPaymentService {
         throw PaymentError.alreadyProcessed(payment.getId());
       }
 
+      // Salvar pagamento inicial no repositório (status PENDING)
+      if (!existingPayment) {
+        await this.paymentRepository.save(payment);
+      }
+
       // Processar com MercadoPago
       const mpResult = await this.mercadoPagoClient.createPayment(payment);
 
@@ -87,7 +92,11 @@ export class PaymentService implements IPaymentService {
 
       // Atualizar status baseado na resposta do MP
       const newStatus = this.mapMercadoPagoStatus(mpResult.status);
-      payment.updateStatus(newStatus, mpResult.status_detail);
+      
+      // Só atualizar se o status for diferente do atual
+      if (payment.getStatus().getValue() !== newStatus.getValue()) {
+        payment.updateStatus(newStatus, mpResult.status_detail);
+      }
 
       // Salvar no repositório
       await this.paymentRepository.update(payment);
