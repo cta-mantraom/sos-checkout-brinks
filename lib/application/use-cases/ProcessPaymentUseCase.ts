@@ -50,8 +50,11 @@ export class ProcessPaymentUseCase {
         description: validatedData.description || `Assinatura ${profile.getSubscriptionPlan()}`
       });
 
-      // 5. Processar pagamento
-      const paymentResult = await this.paymentService.processPayment(payment);
+      // 5. Processar pagamento com dados do perfil
+      const paymentResult = await this.paymentService.processPayment(payment, {
+        email: profile.getEmail().getValue(),
+        cpf: profile.getCPF().getValue()
+      });
 
       // 6. Atualizar status do perfil se pagamento aprovado
       let qrCodeGenerated = false;

@@ -52,7 +52,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
       : 'https://api.mercadopago.com'; // Mesmo endpoint para sandbox
   }
 
-  async createPayment(payment: Payment, payerEmail?: string): Promise<{
+  async createPayment(payment: Payment, payerEmail?: string, payerCpf?: string): Promise<{
     id: string;
     status: string;
     status_detail: string;
@@ -61,7 +61,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
     boletoUrl?: string;
   }> {
     try {
-      // Usar email fornecido ou fallback para email genérico
+      // Usar email e CPF fornecidos
       const email = payerEmail || 'customer@soscheckout.com';
       
       const paymentData: MercadoPagoPaymentRequest = {
@@ -71,6 +71,11 @@ export class MercadoPagoClient implements IMercadoPagoClient {
         installments: payment.getInstallments(),
         payer: {
           email: email,
+          // Para PIX, o CPF é OBRIGATÓRIO
+          identification: (payment.getPaymentMethod() === 'pix' && payerCpf) ? {
+            type: 'CPF',
+            number: payerCpf.replace(/\D/g, '') // Remove formatação do CPF
+          } : undefined
         },
         metadata: {
           profile_id: payment.getProfileId(),
@@ -83,6 +88,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
         amount: payment.getAmount(),
         method: payment.getPaymentMethod(),
         email: email,
+        cpf: payerCpf ? payerCpf.replace(/\D/g, '') : 'não fornecido',
         profileId: payment.getProfileId()
       });
 

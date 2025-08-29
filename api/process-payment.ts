@@ -115,6 +115,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       qrCodeGenerated: result.qrCodeGenerated
     });
 
+    // Adicionar headers de rate limit ANTES de enviar resposta
+    res.setHeader('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    res.setHeader('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    res.setHeader('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
+    
     // Criar resposta de sucesso
     createCorsResponse({
       success: true,
@@ -151,11 +156,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
     }, result.paymentResult.success ? 200 : 402, req, res);
-
-    // Adicionar headers de rate limit
-    res.setHeader('X-RateLimit-Limit', rateLimitResult.limit.toString());
-    res.setHeader('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-    res.setHeader('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
 
     return;
 
