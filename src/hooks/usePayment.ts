@@ -23,6 +23,7 @@ interface PaymentResponse {
   installments: number;
   paymentMethod: string;
   qrCodeData?: string;
+  qrCodeBase64?: string;
   paymentUrl?: string;
   boletoUrl?: string;
   createdAt: string;

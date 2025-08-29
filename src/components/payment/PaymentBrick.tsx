@@ -8,6 +8,7 @@ import { SubscriptionType } from '@/schemas/payment';
 import { SUBSCRIPTION_PRICES } from '@/lib/constants/prices';
 import { CreditCard, Smartphone, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 // Interfaces específicas para MercadoPago Payment Brick
 interface PaymentMethodData {
@@ -80,6 +81,7 @@ export function PaymentBrick({
   const [error, setError] = React.useState<string | null>(null);
   const [brickInstance, setBrickInstance] = React.useState<BrickInstance | null>(null);
   const { initializeBrick } = useMercadoPagoBrick();
+  const navigate = useNavigate();
 
   const containerId = 'payment-brick-container';
 
@@ -148,13 +150,21 @@ export function PaymentBrick({
               const paymentData = data as PaymentSubmissionData;
               const { selectedPaymentMethod, formData } = paymentData;
               try {
-                const paymentData = {
-                  subscriptionType,
+                // Transformar dados do MercadoPago para formato esperado pelo backend
+                const transformedData = {
                   profileId,
                   amount,
-                  paymentMethod: selectedPaymentMethod,
-                  formData,
+                  paymentMethodId: selectedPaymentMethod.id,
+                  paymentMethod: selectedPaymentMethod.type, // 'pix', 'credit_card', etc
+                  token: formData.token,
+                  installments: formData.installments || 1,
+                  payer: {
+                    email: formData.payer?.email,
+                    identification: formData.payer?.identification
+                  }
                 };
+
+                console.log('Enviando dados de pagamento:', transformedData);
 
                 // Enviar dados para o backend processar o pagamento
                 const response = await fetch('/api/process-payment', {
@@ -162,7 +172,7 @@ export function PaymentBrick({
                   headers: {
                     'Content-Type': 'application/json',
                   },
-                  body: JSON.stringify(paymentData),
+                  body: JSON.stringify(transformedData),
                 });
 
                 const result = await response.json();
@@ -171,16 +181,36 @@ export function PaymentBrick({
                   throw new Error(result.message || 'Erro ao processar pagamento');
                 }
 
+                console.log('Resposta do backend:', result);
+
+                // Verificar se é PIX e tem QR Code
+                if (selectedPaymentMethod.type === 'pix' && result.data?.mercadopago?.pixData) {
+                  console.log('PIX QR Code recebido:', result.data.mercadopago.pixData);
+                }
+
                 // Verificar status do pagamento
-                switch (result.status) {
+                const paymentStatus = result.data?.payment?.status || result.status;
+                const paymentId = result.data?.payment?.id || result.id;
+                
+                switch (paymentStatus) {
                   case 'approved':
                     onPaymentSuccess(result);
                     break;
                   case 'pending':
-                    onPaymentPending?.(result);
+                    // Para PIX, redirecionar para página de status com QR Code
+                    if (selectedPaymentMethod.type === 'pix' && paymentId) {
+                      console.log('Redirecionando para página de status PIX...');
+                      navigate(`/payment-status?paymentId=${paymentId}&method=pix`);
+                    } else {
+                      // Para outros métodos, chamar callback de pending
+                      if (result.data?.mercadopago?.pixData) {
+                        result.pixData = result.data.mercadopago.pixData;
+                      }
+                      onPaymentPending?.(result);
+                    }
                     break;
                   case 'rejected':
-                    onPaymentError(new Error(result.status_detail || 'Pagamento rejeitado'));
+                    onPaymentError(new Error(result.data?.mercadopago?.status_detail || 'Pagamento rejeitado'));
                     break;
                   default:
                     onPaymentError(new Error('Status de pagamento desconhecido'));

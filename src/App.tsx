@@ -8,6 +8,7 @@ import { MedicalFormPage } from '@/pages/MedicalFormPage';
 import { CheckoutPage } from '@/pages/CheckoutPage';
 import { SuccessPage } from '@/pages/SuccessPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { PaymentStatusPage } from '@/pages/PaymentStatusPage';
 
 // Layout Components
 import { Toaster } from 'sonner';
@@ -26,6 +27,9 @@ function AppRoutes() {
       
       {/* Checkout - Segunda etapa */}
       <Route path="/checkout" element={<CheckoutPage />} />
+      
+      {/* Status do pagamento - Para PIX e outros pagamentos pendentes */}
+      <Route path="/payment-status" element={<PaymentStatusPage />} />
       
       {/* Sucesso - Terceira etapa com QR Code */}
       <Route path="/success" element={<SuccessPage />} />

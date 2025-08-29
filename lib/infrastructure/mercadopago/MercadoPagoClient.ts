@@ -52,7 +52,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
       : 'https://api.mercadopago.com'; // Mesmo endpoint para sandbox
   }
 
-  async createPayment(payment: Payment): Promise<{
+  async createPayment(payment: Payment, payerEmail?: string): Promise<{
     id: string;
     status: string;
     status_detail: string;
@@ -61,22 +61,53 @@ export class MercadoPagoClient implements IMercadoPagoClient {
     boletoUrl?: string;
   }> {
     try {
+      // Usar email fornecido ou fallback para email genérico
+      const email = payerEmail || 'customer@soscheckout.com';
+      
       const paymentData: MercadoPagoPaymentRequest = {
         transaction_amount: payment.getAmount(),
         payment_method_id: payment.getPaymentMethod(),
         token: payment.getToken(),
         installments: payment.getInstallments(),
         payer: {
-          email: 'user@example.com', // Será obtido do perfil
+          email: email,
         },
         metadata: {
           profile_id: payment.getProfileId(),
-          subscription_plan: 'basic' // Será obtido do perfil
+          subscription_plan: payment.getDescription() || 'basic'
         },
         description: payment.getDescription() || 'Assinatura SOS Checkout Brinks'
       };
 
+      console.log('Criando pagamento no MercadoPago:', {
+        amount: payment.getAmount(),
+        method: payment.getPaymentMethod(),
+        email: email,
+        profileId: payment.getProfileId()
+      });
+
       const response = await this.makeRequest('POST', '/v1/payments', paymentData) as MercadoPagoPaymentResponse;
+      
+      // Log detalhado para debug de PIX
+      if (payment.getPaymentMethod() === 'pix') {
+        console.log('Resposta PIX do MercadoPago:', {
+          id: response.id,
+          status: response.status,
+          status_detail: response.status_detail,
+          hasPointOfInteraction: !!response.point_of_interaction,
+          hasTransactionData: !!response.point_of_interaction?.transaction_data,
+          hasQrCode: !!response.point_of_interaction?.transaction_data?.qr_code,
+          hasQrCodeBase64: !!response.point_of_interaction?.transaction_data?.qr_code_base64,
+        });
+
+        if (response.point_of_interaction?.transaction_data) {
+          console.log('PIX Transaction Data:', {
+            qrCodeLength: response.point_of_interaction.transaction_data.qr_code?.length,
+            qrCodeBase64Length: response.point_of_interaction.transaction_data.qr_code_base64?.length,
+            ticketUrl: response.point_of_interaction.transaction_data.ticket_url
+          });
+        }
+      }
       
       return {
         id: response.id,
@@ -89,6 +120,17 @@ export class MercadoPagoClient implements IMercadoPagoClient {
 
     } catch (error) {
       console.error('Erro ao criar pagamento no MercadoPago:', error);
+      
+      // Tratamento específico para erros de PIX
+      if (payment.getPaymentMethod() === 'pix' && error instanceof Error) {
+        if (error.message.includes('without key enabled')) {
+          throw new Error('Conta MercadoPago sem chave PIX configurada. Configure uma chave PIX na sua conta para aceitar este método de pagamento.');
+        }
+        if (error.message.includes('invalid_public_key')) {
+          throw new Error('Chave pública do MercadoPago inválida. Verifique suas credenciais.');
+        }
+      }
+      
       throw new Error(`Falha na criação do pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
