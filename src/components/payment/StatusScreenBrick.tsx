@@ -34,13 +34,18 @@ export function StatusScreenBrick({
   const containerId = `status-screen-brick-${paymentId}`;
   const pollIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
+  console.log('[StatusScreenBrick] Componente montado com paymentId:', paymentId);
+
   React.useEffect(() => {
     if (!paymentId) {
+      console.error('[StatusScreenBrick] ID do pagamento não fornecido');
       setError('ID do pagamento não fornecido');
       setIsLoading(false);
       return;
     }
 
+    console.log('[StatusScreenBrick] Inicializando Status Screen para paymentId:', paymentId);
+    
     const initializeStatusScreen = async () => {
       try {
         setIsLoading(true);
@@ -134,6 +139,8 @@ export function StatusScreenBrick({
 
         // Função para fazer polling do status usando /api/payment-status
         const startPolling = () => {
+          console.log('[StatusScreenBrick] Iniciando polling para paymentId:', paymentId);
+          
           // Limpar intervalo anterior se existir
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
@@ -142,15 +149,18 @@ export function StatusScreenBrick({
           pollIntervalRef.current = setInterval(async () => {
             try {
               // Usar endpoint payment-status existente com mercadoPagoId
-              const response = await fetch(`/api/payment-status?mercadoPagoId=${paymentId}`);
+              const url = `/api/payment-status?mercadoPagoId=${paymentId}`;
+              console.log('[StatusScreenBrick] Fazendo polling:', url);
+              
+              const response = await fetch(url);
               
               if (!response.ok) {
-                console.error('Erro ao verificar status:', response.statusText);
+                console.error('[StatusScreenBrick] Erro ao verificar status:', response.status, response.statusText);
                 return;
               }
 
               const data = await response.json();
-              console.log('Status do pagamento:', data.status);
+              console.log('[StatusScreenBrick] Status recebido:', data.status);
 
               if (data.status === 'approved') {
                 if (pollIntervalRef.current) {

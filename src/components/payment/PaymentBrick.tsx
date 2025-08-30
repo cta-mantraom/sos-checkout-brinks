@@ -289,21 +289,33 @@ export function PaymentBrick({
                 const paymentStatus = result.data?.mercadopago?.status || result.status;
                 const mercadoPagoId = result.data?.mercadopago?.paymentId || result.id;
                 
+                console.log('[PaymentBrick] Status do pagamento:', {
+                  paymentStatus,
+                  mercadoPagoId,
+                  isPixPayment,
+                  hasPixData: !!result.data?.mercadopago?.pixData
+                });
+                
                 switch (paymentStatus) {
                   case 'approved':
+                    console.log('[PaymentBrick] Pagamento aprovado, chamando onPaymentSuccess');
                     onPaymentSuccess(result);
                     break;
                   case 'pending':
                     // Para PIX, mostrar Status Screen Brick em vez de redirecionar
                     if (isPixPayment && mercadoPagoId) {
-                      console.log('Mostrando Status Screen para PIX, ID:', mercadoPagoId);
+                      console.log('[PaymentBrick] PIX detectado - Mostrando Status Screen, ID:', mercadoPagoId);
                       setMercadoPagoPaymentId(mercadoPagoId);
                       setShowStatusScreen(true);
                       // Esconder o Payment Brick
                       if (brickInstance) {
+                        console.log('[PaymentBrick] Desmontando Payment Brick');
                         brickInstance.unmount();
                       }
+                      // IMPORTANTE: NÃO chamar onPaymentPending para PIX
+                      console.log('[PaymentBrick] StatusScreen deve ser renderizado agora');
                     } else {
+                      console.log('[PaymentBrick] Não é PIX ou falta ID - chamando onPaymentPending');
                       // Para outros métodos, chamar callback de pending
                       if (result.data?.mercadopago?.pixData) {
                         result.pixData = result.data.mercadopago.pixData;
