@@ -62,18 +62,20 @@ const CreatePaymentSchema = CreatePaymentSchemaBase.refine((data) => {
 });
 
 // Schema para webhook do MercadoPago
+// Baseado na estrutura real recebida do MercadoPago
 const WebhookSchema = z.object({
   id: z.number(),
   live_mode: z.boolean(),
   type: z.string(),
   date_created: z.string(),
-  application_id: z.number(),
-  user_id: z.number(),
-  version: z.number(),
+  // Campos opcionais - nem sempre enviados pelo MercadoPago
+  application_id: z.number().optional(),
+  user_id: z.union([z.number(), z.string()]), // Pode vir como string ou number
+  version: z.number().optional(),
   api_version: z.string(),
   action: z.string(),
   data: z.object({
-    id: z.string()
+    id: z.union([z.string(), z.number()]) // ID pode vir como string ou number
   })
 });
 

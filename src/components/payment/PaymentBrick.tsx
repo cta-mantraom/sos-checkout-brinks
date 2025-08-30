@@ -287,11 +287,16 @@ export function PaymentBrick({
 
                 // Verificar status do pagamento
                 const paymentStatus = result.data?.mercadopago?.status || result.status;
-                const mercadoPagoId = result.data?.mercadopago?.paymentId || result.id;
+                // IMPORTANTE: Usar o ID do MercadoPago (externalId), não nosso ID interno
+                const mercadoPagoId = result.data?.payment?.externalId || 
+                                     result.data?.mercadopago?.externalId || 
+                                     result.id;
                 
                 console.log('[PaymentBrick] Status do pagamento:', {
                   paymentStatus,
                   mercadoPagoId,
+                  externalId: result.data?.payment?.externalId,
+                  paymentId: result.data?.mercadopago?.paymentId,
                   isPixPayment,
                   hasPixData: !!result.data?.mercadopago?.pixData
                 });
@@ -304,7 +309,10 @@ export function PaymentBrick({
                   case 'pending':
                     // Para PIX, mostrar Status Screen Brick em vez de redirecionar
                     if (isPixPayment && mercadoPagoId) {
-                      console.log('[PaymentBrick] PIX detectado - Mostrando Status Screen, ID:', mercadoPagoId);
+                      console.log('[PaymentBrick] PIX detectado - Mostrando Status Screen');
+                      console.log('[PaymentBrick] ID do MercadoPago (externalId):', mercadoPagoId);
+                      console.log('[PaymentBrick] DEBUG - payment.externalId:', result.data?.payment?.externalId);
+                      console.log('[PaymentBrick] DEBUG - mercadopago.paymentId:', result.data?.mercadopago?.paymentId);
                       setMercadoPagoPaymentId(mercadoPagoId);
                       setShowStatusScreen(true);
                       // Esconder o Payment Brick

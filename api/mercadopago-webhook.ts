@@ -133,11 +133,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const services = initializeServices();
 
     try {
+      // Converter ID para string (pode vir como number ou string do MercadoPago)
+      const paymentId = String(webhookData.data.id);
+      
       // Buscar detalhes do pagamento no MercadoPago
-      const paymentDetails = await services.mercadoPagoClient.getPaymentById(webhookData.data.id);
+      const paymentDetails = await services.mercadoPagoClient.getPaymentById(paymentId);
       
       if (!paymentDetails) {
-        logger.warn('Payment not found in MercadoPago', { paymentId: webhookData.data.id });
+        logger.warn('Payment not found in MercadoPago', { paymentId });
         return createCorsResponse({
           success: false,
           error: 'Payment not found',
@@ -146,7 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Buscar pagamento no banco de dados usando external_id
-      let payment = await services.paymentService.getPaymentByExternalId(webhookData.data.id);
+      let payment = await services.paymentService.getPaymentByExternalId(paymentId);
       
       // IMPORTANTE: Se não existe no banco e está aprovado, devemos criar
       if (!payment && paymentDetails.status === 'approved') {
@@ -257,7 +260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           amount: paymentDetails.transaction_amount,
           paymentMethodId: paymentDetails.payment_method_id,
           paymentMethod: paymentMethod,
-          externalId: webhookData.data.id
+          externalId: paymentId
         });
         
         await services.paymentRepository.save(payment);

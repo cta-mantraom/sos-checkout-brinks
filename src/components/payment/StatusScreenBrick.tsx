@@ -35,6 +35,7 @@ export function StatusScreenBrick({
   const pollIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   console.log('[StatusScreenBrick] Componente montado com paymentId:', paymentId);
+  console.log('[StatusScreenBrick] DEBUG - Tipo do paymentId:', typeof paymentId, 'Valor:', paymentId);
 
   React.useEffect(() => {
     if (!paymentId) {

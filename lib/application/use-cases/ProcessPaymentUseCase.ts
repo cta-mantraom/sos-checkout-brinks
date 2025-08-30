@@ -52,7 +52,11 @@ export class ProcessPaymentUseCase {
           phone: paymentData.profileData.phone,
           email: paymentData.profileData.email,
           bloodType: paymentData.profileData.bloodType || 'O+',
-          emergencyContact: paymentData.profileData.emergencyContact,
+          emergencyContact: {
+            name: paymentData.profileData.emergencyContact?.name || 'Não informado',
+            phone: paymentData.profileData.emergencyContact?.phone || '00000000000',
+            relationship: paymentData.profileData.emergencyContact?.relationship || 'Não informado'
+          },
           medicalInfo: paymentData.profileData.medicalInfo ? {
             allergies: paymentData.profileData.medicalInfo.allergies,
             medications: paymentData.profileData.medicalInfo.medications?.map(med => 
