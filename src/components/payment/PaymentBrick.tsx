@@ -3,12 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/common/LoadingStates';
 import { FormErrorDisplay } from '@/components/common/ErrorBoundary';
+import { StatusScreenBrick } from './StatusScreenBrick';
 import { useMercadoPagoBrick } from '@/hooks/usePayment';
 import { SubscriptionType } from '@/schemas/payment';
 import { SUBSCRIPTION_PRICES } from '@/lib/constants/prices';
 import { CreditCard, Smartphone, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
 
 // Interface para dados brutos do MercadoPago Brick
 interface MercadoPagoBrickData {
@@ -110,8 +110,9 @@ export function PaymentBrick({
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [brickInstance, setBrickInstance] = React.useState<BrickInstance | null>(null);
+  const [showStatusScreen, setShowStatusScreen] = React.useState(false);
+  const [mercadoPagoPaymentId, setMercadoPagoPaymentId] = React.useState<string | null>(null);
   const { initializeBrick } = useMercadoPagoBrick();
-  const navigate = useNavigate();
 
   const containerId = 'payment-brick-container';
 
@@ -285,18 +286,23 @@ export function PaymentBrick({
                 }
 
                 // Verificar status do pagamento
-                const paymentStatus = result.data?.payment?.status || result.data?.mercadopago?.status || result.status;
-                const paymentId = result.data?.payment?.id || result.data?.mercadopago?.paymentId || result.id;
+                const paymentStatus = result.data?.mercadopago?.status || result.status;
+                const mercadoPagoId = result.data?.mercadopago?.paymentId || result.id;
                 
                 switch (paymentStatus) {
                   case 'approved':
                     onPaymentSuccess(result);
                     break;
                   case 'pending':
-                    // Para PIX, redirecionar para página de status com QR Code
-                    if (isPixPayment && paymentId) {
-                      console.log('Redirecionando para página de status PIX...');
-                      navigate(`/payment-status?paymentId=${paymentId}&method=pix`);
+                    // Para PIX, mostrar Status Screen Brick em vez de redirecionar
+                    if (isPixPayment && mercadoPagoId) {
+                      console.log('Mostrando Status Screen para PIX, ID:', mercadoPagoId);
+                      setMercadoPagoPaymentId(mercadoPagoId);
+                      setShowStatusScreen(true);
+                      // Esconder o Payment Brick
+                      if (brickInstance) {
+                        brickInstance.unmount();
+                      }
                     } else {
                       // Para outros métodos, chamar callback de pending
                       if (result.data?.mercadopago?.pixData) {
@@ -386,6 +392,27 @@ export function PaymentBrick({
   };
 
   const currentSubscription = subscriptionInfo[subscriptionType];
+
+  // Se está mostrando Status Screen para PIX
+  if (showStatusScreen && mercadoPagoPaymentId) {
+    return (
+      <StatusScreenBrick
+        paymentId={mercadoPagoPaymentId}
+        onSuccess={(data) => {
+          console.log('Pagamento PIX aprovado:', data);
+          onPaymentSuccess(data as PaymentResult);
+        }}
+        onError={(error) => {
+          console.error('Erro no pagamento PIX:', error);
+          setError(error.message);
+          setShowStatusScreen(false);
+          setMercadoPagoPaymentId(null);
+          onPaymentError(error);
+        }}
+        className={className}
+      />
+    );
+  }
 
   if (error) {
     return (

@@ -178,14 +178,6 @@ export class MercadoPagoClient implements IMercadoPagoClient {
     }
   }
 
-  async getPaymentById(id: string): Promise<MercadoPagoPaymentResponse> {
-    try {
-      return await this.makeRequest('GET', `/v1/payments/${id}`) as MercadoPagoPaymentResponse;
-    } catch (error) {
-      console.error('Erro ao buscar pagamento no MercadoPago:', error);
-      throw new Error(`Falha ao buscar pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-    }
-  }
 
   async validateWebhook(payload: unknown, headers: Record<string, string>): Promise<boolean> {
     try {
@@ -318,6 +310,39 @@ export class MercadoPagoClient implements IMercadoPagoClient {
 
   private generateIdempotencyKey(): string {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  }
+
+  async getPaymentById(id: string): Promise<MercadoPagoPaymentResponse> {
+    try {
+      const response = await this.makeRequest('GET', `/v1/payments/${id}`, null) as MercadoPagoPaymentResponse;
+      
+      if (!response) {
+        throw new Error(`Payment not found: ${id}`);
+      }
+
+      // Garantir que o response tem a estrutura esperada
+      const payment: MercadoPagoPaymentResponse = {
+        id: String(response.id),
+        status: response.status,
+        status_detail: response.status_detail,
+        transaction_amount: response.transaction_amount,
+        payment_method_id: response.payment_method_id,
+        payment_method: response.payment_method,
+        metadata: response.metadata,
+        external_reference: response.external_reference,
+        point_of_interaction: response.point_of_interaction
+      };
+
+      return payment;
+    } catch (error) {
+      console.error(`Error fetching payment ${id} from MercadoPago:`, error);
+      
+      if (error instanceof Error && error.message.includes('404')) {
+        throw new Error(`Payment not found in MercadoPago: ${id}`);
+      }
+      
+      throw error;
+    }
   }
 
   // Métodos utilitários para configuração

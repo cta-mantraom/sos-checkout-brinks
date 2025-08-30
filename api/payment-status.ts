@@ -5,10 +5,14 @@ import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_CONFIGS } from './_u
 import { logger } from '../lib/shared/utils/logger.js';
 import { z } from 'zod';
 
-// Schema para validação da query
+// Schema para validação da query - aceita id OU mercadoPagoId
 const QuerySchema = z.object({
-  id: z.string().min(1, 'Payment ID é obrigatório')
-});
+  id: z.string().min(1).optional(),
+  mercadoPagoId: z.string().min(1).optional()
+}).refine(
+  (data) => data.id || data.mercadoPagoId,
+  { message: 'É necessário fornecer id ou mercadoPagoId' }
+);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
@@ -80,37 +84,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw error;
     }
 
-    const { id: paymentId } = validatedQuery;
+    const { id: paymentId, mercadoPagoId } = validatedQuery;
 
     logger.info('Payment status request', {
       identifier,
-      paymentId
+      paymentId,
+      mercadoPagoId
     });
 
     // Inicializar serviços
     const services = initializeServices();
     
-    // Buscar pagamento no banco
-    const payment = await services.paymentService.getPaymentById(paymentId);
+    let payment = null;
+    let externalId = mercadoPagoId;
     
-    if (!payment) {
-      logger.warn('Payment not found for status', { paymentId });
+    // Se foi fornecido mercadoPagoId, buscar direto no MercadoPago (sem tocar no banco)
+    if (mercadoPagoId) {
+      // NÃO buscar no banco, consultar direto no MercadoPago
+      externalId = mercadoPagoId;
+    } else if (paymentId) {
+      // Se foi fornecido id interno, buscar no banco
+      payment = await services.paymentService.getPaymentById(paymentId);
       
-      return createCorsResponse({
-        success: false,
-        error: 'Payment not found',
-        code: 'PAYMENT_NOT_FOUND'
-      }, 404, req, res);
+      if (!payment) {
+        logger.warn('Payment not found for status', { paymentId });
+        
+        return createCorsResponse({
+          success: false,
+          error: 'Payment not found',
+          code: 'PAYMENT_NOT_FOUND'
+        }, 404, req, res);
+      }
+      
+      externalId = payment.getMercadoPagoId();
     }
 
-    // Buscar dados do MercadoPago se tiver external ID
+    // Buscar dados do MercadoPago
     let pixData = null;
-    const externalId = payment.getMercadoPagoId();
+    let mpPayment = null;
     
-    if (externalId && payment.getPaymentMethod() === 'pix') {
+    if (externalId) {
       try {
         // Buscar detalhes do pagamento no MercadoPago
-        const mpPayment = await services.mercadoPagoClient.getPaymentById(externalId);
+        mpPayment = await services.mercadoPagoClient.getPaymentById(externalId);
         
         if (mpPayment?.point_of_interaction?.transaction_data) {
           pixData = {
@@ -124,12 +140,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           paymentId,
           externalId
         });
-        // Não falhar se não conseguir buscar dados do MP
+        
+        // Se foi fornecido apenas mercadoPagoId e falhou, retornar erro
+        if (mercadoPagoId && !payment) {
+          return createCorsResponse({
+            success: false,
+            error: 'Payment not found in MercadoPago',
+            code: 'PAYMENT_NOT_FOUND'
+          }, 404, req, res);
+        }
       }
     }
 
-    // Montar resposta
-    const response = {
+    // Montar resposta - usar dados do banco se disponível, senão usar dados do MercadoPago
+    const response = payment ? {
+      // Resposta quando temos o payment do banco
       id: payment.getId(),
       status: payment.getStatus().getValue(),
       externalId: payment.getMercadoPagoId() || '',
@@ -142,6 +167,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       boletoUrl: payment.getBoletoUrl() || '',
       createdAt: payment.getCreatedAt().toISOString(),
       expiresAt: payment.getExpiresAt()?.toISOString()
+    } : {
+      // Resposta quando só temos dados do MercadoPago (sem banco)
+      id: mercadoPagoId || '',
+      status: mpPayment?.status || 'unknown',
+      externalId: mercadoPagoId || '',
+      amount: mpPayment?.transaction_amount || 0,
+      installments: 1,
+      paymentMethod: mpPayment?.payment_method_id || '',
+      qrCodeData: pixData?.qrCode || '',
+      qrCodeBase64: pixData?.qrCodeBase64 || '',
+      paymentUrl: pixData?.ticketUrl || '',
+      boletoUrl: '',
+      createdAt: new Date().toISOString(),
+      expiresAt: undefined
     };
 
     const duration = Date.now() - startTime;
