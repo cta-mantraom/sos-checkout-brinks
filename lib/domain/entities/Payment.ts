@@ -11,6 +11,7 @@ export interface CreatePaymentProps {
   token?: string;
   installments?: number;
   description?: string;
+  externalId?: string;
 }
 
 export interface PaymentDTO {
@@ -95,7 +96,7 @@ export class Payment {
       props.paymentMethodId.trim(),
       props.paymentMethod,
       PaymentStatus.PENDING,
-      undefined,
+      props.externalId, // MercadoPago ID quando criado via webhook
       props.token,
       props.installments || 1,
       props.description?.trim(),

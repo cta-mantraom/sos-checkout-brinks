@@ -146,19 +146,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Buscar pagamento no banco de dados usando external_id
-      const payment = await services.paymentService.getPaymentByExternalId(webhookData.data.id);
+      let payment = await services.paymentService.getPaymentByExternalId(webhookData.data.id);
       
-      if (!payment) {
-        logger.warn('Payment not found in database', { 
+      // IMPORTANTE: Se não existe no banco e está aprovado, devemos criar
+      if (!payment && paymentDetails.status === 'approved') {
+        logger.info('Creating payment from webhook (approved)', {
           externalId: webhookData.data.id,
-          mercadoPagoStatus: paymentDetails.status
+          status: paymentDetails.status,
+          amount: paymentDetails.transaction_amount
+        });
+        
+        // Extrair profileId dos metadados
+        const profileId = paymentDetails.metadata?.profile_id || 
+                         paymentDetails.external_reference;
+        
+        if (!profileId) {
+          logger.error('ProfileId not found in MercadoPago payment', undefined, {
+            externalId: webhookData.data.id,
+            metadata: paymentDetails.metadata
+          });
+          
+          return createCorsResponse({
+            success: false,
+            error: 'ProfileId not found in payment metadata',
+            code: 'PROFILE_ID_MISSING'
+          }, 400, req, res, corsOptions);
+        }
+        
+        // Criar e salvar payment
+        const { Payment } = await import('../lib/domain/entities/Payment.js');
+        
+        // Mapear método de pagamento do MercadoPago para nosso tipo
+        let paymentMethod: 'credit_card' | 'debit_card' | 'pix' | 'boleto' = 'pix';
+        const mpMethodType = paymentDetails.payment_method?.type || '';
+        
+        if (mpMethodType === 'credit_card' || paymentDetails.payment_method_id?.includes('credit')) {
+          paymentMethod = 'credit_card';
+        } else if (mpMethodType === 'debit_card' || paymentDetails.payment_method_id?.includes('debit')) {
+          paymentMethod = 'debit_card';
+        } else if (paymentDetails.payment_method_id === 'pix') {
+          paymentMethod = 'pix';
+        } else if (paymentDetails.payment_method_id?.includes('boleto')) {
+          paymentMethod = 'boleto';
+        }
+        
+        payment = Payment.create({
+          profileId: profileId as string,
+          amount: paymentDetails.transaction_amount,
+          paymentMethodId: paymentDetails.payment_method_id,
+          paymentMethod: paymentMethod,
+          externalId: webhookData.data.id
+        });
+        
+        await services.paymentRepository.save(payment);
+        
+      } else if (!payment) {
+        // Se não é approved e não existe, ignorar
+        logger.info('Ignoring webhook for non-approved payment', {
+          externalId: webhookData.data.id,
+          status: paymentDetails.status
         });
         
         return createCorsResponse({
-          success: false,
-          error: 'Payment not found in database',
-          code: 'PAYMENT_NOT_IN_DB'
-        }, 404, req, res, corsOptions);
+          success: true,
+          message: 'Webhook ignored - payment not yet approved',
+          code: 'IGNORED'
+        }, 200, req, res, corsOptions);
       }
 
       // Mapear status do MercadoPago para nosso PaymentStatus

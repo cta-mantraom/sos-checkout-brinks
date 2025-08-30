@@ -71,15 +71,12 @@ export class PaymentService implements IPaymentService {
         );
       }
 
-      // Verificar se pagamento já foi processado
+      // IMPORTANTE: NÃO salvar pagamento no banco ainda!
+      // Dados só serão salvos quando recebermos webhook de pagamento aprovado
+      // Verificar se pagamento já existe (para evitar duplicação)
       const existingPayment = await this.paymentRepository.findById(payment.getId());
       if (existingPayment && !existingPayment.isPending()) {
         throw PaymentError.alreadyProcessed(payment.getId());
-      }
-
-      // Salvar pagamento inicial no repositório (status PENDING)
-      if (!existingPayment) {
-        await this.paymentRepository.save(payment);
       }
 
       // Processar com MercadoPago
@@ -107,8 +104,8 @@ export class PaymentService implements IPaymentService {
         payment.updateStatus(newStatus, mpResult.status_detail);
       }
 
-      // Salvar no repositório
-      await this.paymentRepository.update(payment);
+      // IMPORTANTE: NÃO salvar no repositório ainda!
+      // Dados só serão salvos quando recebermos webhook de pagamento aprovado
 
       // Para PIX, pending com QR Code é considerado sucesso
       const isPixPendingWithQrCode = payment.getPaymentMethod() === 'pix' && 

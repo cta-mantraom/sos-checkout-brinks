@@ -123,8 +123,9 @@ export function PaymentBrick({
             paymentMethods: {
               creditCard: 'all',
               debitCard: 'all',
-              ticket: 'all',
-              bankTransfer: 'all',
+              bankTransfer: 'all',  // PIX
+              ticket: 'none',  // Sem boleto
+              mercadoPago: 'none',  // Sem MercadoPago Wallet
             },
             visual: {
               style: {
@@ -160,8 +161,9 @@ export function PaymentBrick({
               const brickData = data as MercadoPagoBrickData;
               
               try {
-                // O MercadoPago pode enviar dados em diferentes formatos
-                // Vamos verificar todas as possibilidades
+                // IMPORTANTE: O Payment Brick do MercadoPago deve processar o pagamento
+                // Vamos apenas enviar os dados para o backend processar corretamente
+                // Detectar o método de pagamento corretamente
                 let paymentMethodId = brickData.payment_method_id || 
                                      brickData.paymentMethodId ||
                                      brickData.payment_method ||
@@ -169,34 +171,33 @@ export function PaymentBrick({
                                      brickData.formData?.payment_method_id ||
                                      brickData.formData?.payment_method;
                 
-                // Se ainda não temos paymentMethodId, talvez seja PIX
-                // PIX pode vir sem ID quando selecionado
-                const isPossiblyPix = !paymentMethodId && !brickData.token;
+                // PIX vem como 'pix' ou sem token
+                const isPix = paymentMethodId === 'pix' || (!paymentMethodId && !brickData.token);
                 
-                // Mapear tipos de pagamento do MercadoPago para nosso backend
-                let paymentMethod: 'credit_card' | 'debit_card' | 'pix' | 'boleto' = 'pix';
+                // Mapear tipos de pagamento - APENAS PIX, CRÉDITO e DÉBITO
+                let paymentMethod: 'credit_card' | 'debit_card' | 'pix';
                 
-                // Identificar o método de pagamento baseado no ID do MercadoPago
-                if (isPossiblyPix || !paymentMethodId || paymentMethodId === 'pix') {
+                if (isPix) {
                   paymentMethod = 'pix';
                   paymentMethodId = 'pix';
-                } else if (paymentMethodId.includes('debit') || paymentMethodId.includes('debito')) {
-                  paymentMethod = 'debit_card';
-                } else if (paymentMethodId === 'bolbradesco' || paymentMethodId.includes('boleto')) {
-                  paymentMethod = 'boleto';
-                } else if (paymentMethodId && brickData.token) {
-                  // Se tem token, é cartão
-                  paymentMethod = 'credit_card';
-                } else if (paymentMethodId) {
-                  // Por padrão, assume cartão de crédito para outros IDs
-                  paymentMethod = 'credit_card';
+                } else if (brickData.token) {
+                  // Tem token = cartão, verificar se é débito ou crédito
+                  if (paymentMethodId && (paymentMethodId.includes('debit') || paymentMethodId.includes('debito'))) {
+                    paymentMethod = 'debit_card';
+                  } else {
+                    paymentMethod = 'credit_card';
+                  }
+                } else {
+                  // Default para PIX se não identificado
+                  paymentMethod = 'pix';
+                  paymentMethodId = 'pix';
                 }
                 
                 console.log('Método de pagamento identificado:', { 
                   paymentMethodId, 
                   paymentMethod,
                   hasToken: !!brickData.token,
-                  isPossiblyPix 
+                  isPix 
                 });
                 
                 // Transformar dados do MercadoPago para formato esperado pelo backend
@@ -220,7 +221,8 @@ export function PaymentBrick({
                 
                 console.log('Dados transformados para envio:', transformedData);
 
-                // Enviar dados para o backend processar o pagamento
+                // IMPORTANTE: Usar API process-payment que NÃO salva no banco
+                // Dados só serão salvos quando pagamento for aprovado via webhook
                 const response = await fetch('/api/process-payment', {
                   method: 'POST',
                   headers: {
@@ -232,20 +234,20 @@ export function PaymentBrick({
                 const result = await response.json();
 
                 if (!response.ok) {
-                  throw new Error(result.message || 'Erro ao processar pagamento');
+                  throw new Error(result.message || 'Erro ao criar pagamento');
                 }
 
                 console.log('Resposta do backend:', result);
 
                 // Verificar se é PIX e tem QR Code
-                const isPix = paymentMethod === 'pix';
-                if (isPix && result.data?.mercadopago?.pixData) {
+                const isPixPayment = paymentMethod === 'pix';
+                if (isPixPayment && result.data?.mercadopago?.pixData) {
                   console.log('PIX QR Code recebido:', result.data.mercadopago.pixData);
                 }
 
                 // Verificar status do pagamento
-                const paymentStatus = result.data?.payment?.status || result.status;
-                const paymentId = result.data?.payment?.id || result.id;
+                const paymentStatus = result.data?.payment?.status || result.data?.mercadopago?.status || result.status;
+                const paymentId = result.data?.payment?.id || result.data?.mercadopago?.paymentId || result.id;
                 
                 switch (paymentStatus) {
                   case 'approved':
@@ -253,7 +255,7 @@ export function PaymentBrick({
                     break;
                   case 'pending':
                     // Para PIX, redirecionar para página de status com QR Code
-                    if (isPix && paymentId) {
+                    if (isPixPayment && paymentId) {
                       console.log('Redirecionando para página de status PIX...');
                       navigate(`/payment-status?paymentId=${paymentId}&method=pix`);
                     } else {

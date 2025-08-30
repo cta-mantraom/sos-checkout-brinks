@@ -30,6 +30,18 @@ export interface MercadoPagoPaymentResponse {
   id: string;
   status: string;
   status_detail: string;
+  transaction_amount: number;
+  payment_method_id: string;
+  payment_method?: {
+    id: string;
+    type: string;
+  };
+  metadata?: {
+    profile_id?: string;
+    subscription_plan?: string;
+    [key: string]: unknown;
+  };
+  external_reference?: string;
   point_of_interaction?: {
     transaction_data?: {
       qr_code?: string;
