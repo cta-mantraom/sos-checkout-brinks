@@ -82,13 +82,14 @@ export class ProcessPaymentUseCase {
         });
       }
       
-      // 7. Gerar QR Code do perfil médico se pagamento aprovado OU PIX com sucesso
-      if (isReallyApproved || paymentResult.success) {
+      // 7. Gerar QR Code do perfil médico APENAS se pagamento realmente aprovado
+      // Para PIX pending, NÃO gerar QR Code médico (será gerado após confirmação via webhook)
+      if (isReallyApproved) {
         try {
           qrCodeUrl = await this.qrCodeService.generateQRCode(profile.getId());
           qrCodeGenerated = true;
         } catch (error) {
-          console.error('Erro ao gerar QR Code:', error);
+          console.error('Erro ao gerar QR Code médico:', error);
           // Não falhar o pagamento se QR Code falhar
           qrCodeGenerated = false;
         }
