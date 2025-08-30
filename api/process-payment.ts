@@ -147,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           success: result.paymentResult.success,
           message: result.paymentResult.message,
           paymentId: result.paymentResult.paymentId,
+          externalId: result.payment.getExternalId(), // ID real do MercadoPago
           status: result.paymentResult.status,
           // Incluir dados do PIX se disponíveis
           pixData: result.paymentResult.pixQrCode ? {

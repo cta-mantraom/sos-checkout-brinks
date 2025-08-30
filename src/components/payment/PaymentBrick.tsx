@@ -278,6 +278,9 @@ export function PaymentBrick({
                 }
 
                 console.log('Resposta do backend:', result);
+                console.log('[PaymentBrick] DEBUG - payment.externalId:', result.data?.payment?.externalId);
+                console.log('[PaymentBrick] DEBUG - payment.id:', result.data?.payment?.id);
+                console.log('[PaymentBrick] DEBUG - mercadopago.paymentId:', result.data?.mercadopago?.paymentId);
 
                 // Verificar se é PIX e tem QR Code
                 const isPixPayment = paymentMethod === 'pix';
@@ -287,10 +290,11 @@ export function PaymentBrick({
 
                 // Verificar status do pagamento
                 const paymentStatus = result.data?.mercadopago?.status || result.status;
-                // IMPORTANTE: Usar o ID do MercadoPago (externalId), não nosso ID interno
-                const mercadoPagoId = result.data?.payment?.externalId || 
-                                     result.data?.mercadopago?.externalId || 
-                                     result.id;
+                // IMPORTANTE: Para o Status Screen Brick, SEMPRE usar o externalId (ID real do MercadoPago)
+                // O externalId vem do backend como um número, precisamos convertê-lo para string
+                const mercadoPagoId = result.data?.payment?.externalId ? 
+                                     String(result.data.payment.externalId) : 
+                                     result.data?.mercadopago?.paymentId || result.id;
                 
                 console.log('[PaymentBrick] Status do pagamento:', {
                   paymentStatus,
@@ -310,8 +314,9 @@ export function PaymentBrick({
                     // Para PIX, mostrar Status Screen Brick em vez de redirecionar
                     if (isPixPayment && mercadoPagoId) {
                       console.log('[PaymentBrick] PIX detectado - Mostrando Status Screen');
-                      console.log('[PaymentBrick] ID do MercadoPago (externalId):', mercadoPagoId);
-                      console.log('[PaymentBrick] DEBUG - payment.externalId:', result.data?.payment?.externalId);
+                      console.log('[PaymentBrick] ID do MercadoPago para Status Screen:', mercadoPagoId);
+                      console.log('[PaymentBrick] Tipo do ID:', typeof mercadoPagoId);
+                      console.log('[PaymentBrick] DEBUG - payment.externalId original:', result.data?.payment?.externalId);
                       console.log('[PaymentBrick] DEBUG - mercadopago.paymentId:', result.data?.mercadopago?.paymentId);
                       setMercadoPagoPaymentId(mercadoPagoId);
                       setShowStatusScreen(true);

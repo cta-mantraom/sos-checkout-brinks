@@ -36,11 +36,22 @@ export function StatusScreenBrick({
 
   console.log('[StatusScreenBrick] Componente montado com paymentId:', paymentId);
   console.log('[StatusScreenBrick] DEBUG - Tipo do paymentId:', typeof paymentId, 'Valor:', paymentId);
+  console.log('[StatusScreenBrick] DEBUG - ID deve ser o externalId do MercadoPago (número), não nosso ID interno');
 
   React.useEffect(() => {
     if (!paymentId) {
       console.error('[StatusScreenBrick] ID do pagamento não fornecido');
       setError('ID do pagamento não fornecido');
+      setIsLoading(false);
+      return;
+    }
+    
+    // Validar se é um ID válido do MercadoPago (deve ser numérico)
+    if (paymentId.startsWith('payment_')) {
+      console.error('[StatusScreenBrick] ERRO: Recebido ID interno em vez do externalId do MercadoPago!');
+      console.error('[StatusScreenBrick] ID recebido:', paymentId);
+      console.error('[StatusScreenBrick] Esperado: ID numérico do MercadoPago (ex: 123744491503)');
+      setError('ID de pagamento inválido - usando ID interno em vez do ID do MercadoPago');
       setIsLoading(false);
       return;
     }
