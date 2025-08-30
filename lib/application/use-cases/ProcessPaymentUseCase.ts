@@ -60,7 +60,11 @@ export class ProcessPaymentUseCase {
       let qrCodeGenerated = false;
       let qrCodeUrl: string | undefined;
 
-      if (paymentResult.success) {
+      // Só atualizar perfil como APPROVED se o pagamento realmente foi aprovado
+      // Para PIX pending, NÃO atualizar ainda (será atualizado via webhook)
+      const isReallyApproved = paymentResult.status === 'approved';
+      
+      if (isReallyApproved) {
         // Atualizar status do perfil
         const newStatus = PaymentStatus.APPROVED;
         profile.updatePaymentStatus(newStatus);
@@ -76,8 +80,10 @@ export class ProcessPaymentUseCase {
           medicalInfo: profile.getMedicalInfo(),
           subscriptionPlan: profile.getSubscriptionPlan()
         });
-
-        // 7. Gerar QR Code
+      }
+      
+      // 7. Gerar QR Code do perfil médico se pagamento aprovado OU PIX com sucesso
+      if (isReallyApproved || paymentResult.success) {
         try {
           qrCodeUrl = await this.qrCodeService.generateQRCode(profile.getId());
           qrCodeGenerated = true;

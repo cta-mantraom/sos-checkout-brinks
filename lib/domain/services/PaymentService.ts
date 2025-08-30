@@ -110,8 +110,13 @@ export class PaymentService implements IPaymentService {
       // Salvar no repositório
       await this.paymentRepository.update(payment);
 
+      // Para PIX, pending com QR Code é considerado sucesso
+      const isPixPendingWithQrCode = payment.getPaymentMethod() === 'pix' && 
+                                      mpResult.status === 'pending' && 
+                                      !!mpResult.pixQrCode;
+      
       return {
-        success: newStatus.isSuccessful(),
+        success: newStatus.isSuccessful() || isPixPendingWithQrCode,
         paymentId: payment.getId(),
         status: mpResult.status,
         detail: mpResult.status_detail,
