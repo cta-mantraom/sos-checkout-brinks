@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Rate limiting
-    const rateLimitResult = checkRateLimit(identifier, RATE_LIMIT_CONFIGS.read);
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMIT_CONFIGS.default);
     if (!rateLimitResult.success) {
       logger.warn('Rate limit exceeded for payment status', {
         identifier,

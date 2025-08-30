@@ -33,13 +33,9 @@ export class ProfileService implements IProfileService {
     // Salvar perfil
     await this.profileRepository.save(profile);
 
-    // Criar assinatura
-    const subscription = Subscription.create({
-      profileId: profile.getId(),
-      plan: props.subscriptionPlan || 'basic'
-    });
-    await this.subscriptionRepository.save(subscription);
-
+    // IMPORTANTE: NÃO criar subscription aqui!
+    // Subscription só será criada após pagamento aprovado via webhook
+    
     // Vincular usuário se fornecido
     if (userId) {
       await this.linkUserToProfile(userId, profile.getId());

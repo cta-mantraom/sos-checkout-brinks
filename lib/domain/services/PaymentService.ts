@@ -28,7 +28,7 @@ export interface MercadoPagoPaymentDetails {
 }
 
 export interface IMercadoPagoClient {
-  createPayment(payment: Payment, payerEmail?: string, payerCpf?: string): Promise<{
+  createPayment(payment: Payment, payerEmail?: string, payerCpf?: string, metadata?: Record<string, string>): Promise<{
     id: string;
     status: string;
     status_detail: string;
@@ -47,7 +47,7 @@ export interface PayerInfo {
 }
 
 export interface IPaymentService {
-  processPayment(payment: Payment, payerInfo?: PayerInfo): Promise<PaymentResult>;
+  processPayment(payment: Payment, payerInfo?: PayerInfo, metadata?: Record<string, string>): Promise<PaymentResult>;
   validateWebhook(payload: unknown, headers: Record<string, string>): Promise<boolean>;
   updatePaymentStatus(id: string, status: PaymentStatus): Promise<void>;
   getPaymentById(id: string): Promise<Payment | null>;
@@ -61,7 +61,7 @@ export class PaymentService implements IPaymentService {
     private readonly mercadoPagoClient: IMercadoPagoClient
   ) {}
 
-  async processPayment(payment: Payment, payerInfo?: PayerInfo): Promise<PaymentResult> {
+  async processPayment(payment: Payment, payerInfo?: PayerInfo, metadata?: Record<string, string>): Promise<PaymentResult> {
     try {
       // Validações de domínio
       if (!payment.canBeProcessed()) {
@@ -79,11 +79,12 @@ export class PaymentService implements IPaymentService {
         throw PaymentError.alreadyProcessed(payment.getId());
       }
 
-      // Processar com MercadoPago
+      // Processar com MercadoPago (incluindo metadata se fornecido)
       const mpResult = await this.mercadoPagoClient.createPayment(
         payment, 
         payerInfo?.email,
-        payerInfo?.cpf
+        payerInfo?.cpf,
+        metadata
       );
 
       // Atualizar dados do pagamento

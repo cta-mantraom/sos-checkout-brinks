@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import { SUBSCRIPTION_DURATIONS } from '@/lib/constants/prices';
 import { SubscriptionType } from '@/schemas/payment';
+import { MedicalFormData } from '@/schemas/medicalForm';
 
 interface LocationState {
-  profileId?: string;
+  profileId?: string;  // Para compatibilidade temporária
+  formData?: MedicalFormData;  // Dados do formulário não salvos
   selectedPlan?: SubscriptionType;
   profileData?: {
     id: string;
@@ -34,20 +36,25 @@ export function CheckoutPage() {
   const processPaymentMutation = useProcessPayment();
   
   const state = location.state as LocationState;
-  const profileId = state?.profileId;
+  const profileId = state?.profileId;  // Pode ser null agora
+  const formData = state?.formData;  // Dados do formulário
   const selectedPlan = (state?.selectedPlan || 'basic') as SubscriptionType;
   const profileData = state?.profileData;
 
   // Redirecionar se não tiver dados necessários
   React.useEffect(() => {
-    if (!profileId || !profileData) {
+    if (!formData && !profileData) {
       navigate('/medical-form');
     }
-  }, [profileId, profileData, navigate]);
+  }, [formData, profileData, navigate]);
 
-  if (!profileId || !profileData) {
+  if (!formData && !profileData) {
     return null; // Component will redirect
   }
+
+  // Usar dados do formulário se disponíveis, senão usar profileData
+  const displayName = formData?.name || profileData?.name || 'Usuário';
+  const displayEmail = formData?.email || profileData?.email || '';
 
   const { basePrice, totalAmount } = calculateAmount(selectedPlan);
   const duration = SUBSCRIPTION_DURATIONS[selectedPlan];
@@ -145,19 +152,19 @@ export function CheckoutPage() {
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <User className="h-5 w-5" />
-                  <CardTitle className="text-lg">Perfil Criado</CardTitle>
+                  <CardTitle className="text-lg">Seus Dados</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Dados salvos com sucesso</span>
+                  <CheckCircle className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm">Dados prontos para processar</span>
                 </div>
                 <div className="text-sm">
-                  <strong>Nome:</strong> {profileData.name}
+                  <strong>Nome:</strong> {displayName}
                 </div>
                 <div className="text-sm">
-                  <strong>Email:</strong> {profileData.email}
+                  <strong>Email:</strong> {displayEmail}
                 </div>
               </CardContent>
             </Card>
@@ -270,7 +277,29 @@ export function CheckoutPage() {
 
             <PaymentBrick
               subscriptionType={selectedPlan}
-              profileId={profileId}
+              profileId={profileId}  // Para compatibilidade
+              profileData={formData ? {  // NOVO: Enviar dados do formulário
+                fullName: formData.name,
+                cpf: formData.cpf.replace(/\D/g, ''),  // Remover formatação
+                phone: formData.phone.replace(/\D/g, ''),  // Remover formatação
+                email: formData.email,
+                bloodType: formData.bloodType,
+                emergencyContact: {
+                  name: formData.emergencyContacts[0]?.name || '',
+                  phone: formData.emergencyContacts[0]?.phone?.replace(/\D/g, '') || '',
+                  relationship: formData.emergencyContacts[0]?.relationship || ''
+                },
+                medicalInfo: {
+                  allergies: formData.allergies || [],
+                  medications: (formData.medications || []).map(med => ({
+                    name: med.name || '',
+                    dosage: med.dosage || '',
+                    frequency: med.frequency || ''
+                  })),
+                  medicalConditions: formData.medicalConditions || [],
+                  additionalNotes: formData.observations || ''
+                }
+              } : undefined}
               amount={totalAmount}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentError={handlePaymentError}

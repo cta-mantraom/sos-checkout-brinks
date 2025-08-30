@@ -59,7 +59,29 @@ interface PaymentResult {
 
 interface PaymentBrickProps {
   subscriptionType: SubscriptionType;
-  profileId: string;
+  profileId?: string;  // Opcional agora
+  profileData?: {  // Dados do perfil para novo fluxo
+    fullName: string;
+    cpf: string;
+    phone: string;
+    email: string;
+    bloodType?: string;
+    emergencyContact: {
+      name: string;
+      phone: string;
+      relationship: string;
+    };
+    medicalInfo?: {
+      allergies: string[];
+      medications: Array<{
+        name: string;
+        dosage: string;
+        frequency: string;
+      }>;
+      medicalConditions: string[];
+      additionalNotes?: string;
+    };
+  };
   amount: number;
   onPaymentSuccess: (paymentData: PaymentResult) => void;
   onPaymentError: (error: Error | PaymentError) => void;
@@ -77,6 +99,7 @@ interface BrickInstance {
 export function PaymentBrick({
   subscriptionType,
   profileId,
+  profileData,
   amount,
   onPaymentSuccess,
   onPaymentError,
@@ -201,7 +224,23 @@ export function PaymentBrick({
                 });
                 
                 // Transformar dados do MercadoPago para formato esperado pelo backend
-                const transformedData = {
+                const transformedData = profileData ? {
+                  // NOVO FLUXO: Enviar dados do perfil
+                  amount,
+                  paymentMethodId: paymentMethodId || 'pix',
+                  paymentMethod: paymentMethod,
+                  token: brickData.token || brickData.formData?.token,
+                  installments: brickData.installments || brickData.formData?.installments || 1,
+                  payer: {
+                    email: brickData.payer?.email || brickData.formData?.payer?.email || profileData.email,
+                    identification: brickData.payer?.identification || brickData.formData?.payer?.identification
+                  },
+                  profileData: {
+                    ...profileData,
+                    subscriptionPlan: subscriptionType
+                  }
+                } : {
+                  // FLUXO ANTIGO: Enviar profileId
                   profileId,
                   amount,
                   paymentMethodId: paymentMethodId || 'pix',

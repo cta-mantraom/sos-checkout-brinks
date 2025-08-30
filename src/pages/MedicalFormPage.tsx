@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MedicalForm } from '@/components/forms/MedicalForm';
-import { useCreateProfile } from '@/hooks/useProfile';
+// Removido useCreateProfile - perfil só é criado após pagamento aprovado
 import { MedicalFormData } from '@/schemas/medicalForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -12,22 +12,21 @@ export function MedicalFormPage() {
   const location = useLocation();
   
   const selectedPlan = (location.state?.selectedPlan || 'basic') as 'basic' | 'premium';
-  const createProfileMutation = useCreateProfile(selectedPlan);
-
+  // IMPORTANTE: NÃO criar perfil antes do pagamento!
+  // Perfil só será criado após confirmação do pagamento via webhook
   const handleSubmit = async (data: MedicalFormData) => {
     try {
-      const profile = await createProfileMutation.mutateAsync(data);
-      
-      // Redirecionar para checkout com o ID do perfil criado
+      // Navegar direto para checkout com os dados do formulário
+      // SEM criar perfil no banco de dados
       navigate('/checkout', { 
         state: { 
-          profileId: profile.id,
+          formData: data,  // Dados do formulário, não salvos ainda
           selectedPlan,
-          profileData: profile
+          profileData: null  // Sem perfil criado ainda
         } 
       });
     } catch (error) {
-      console.error('Erro ao criar perfil:', error);
+      console.error('Erro ao processar formulário:', error);
       // O erro será tratado pelo componente MedicalForm
     }
   };
@@ -155,8 +154,8 @@ export function MedicalFormPage() {
           <div className="lg:col-span-3">
             <MedicalForm
               onSubmit={handleSubmit}
-              isLoading={createProfileMutation.isPending}
-              error={createProfileMutation.error}
+              isLoading={false}  // Não há loading, apenas navegação
+              error={undefined}  // Erros serão tratados no checkout
               className="w-full"
             />
             

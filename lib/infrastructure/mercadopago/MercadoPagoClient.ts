@@ -22,6 +22,7 @@ export interface MercadoPagoPaymentRequest {
   metadata?: {
     profile_id: string;
     subscription_plan: string;
+    [key: string]: string;  // Permitir propriedades adicionais
   };
   description?: string;
 }
@@ -64,7 +65,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
       : 'https://api.mercadopago.com'; // Mesmo endpoint para sandbox
   }
 
-  async createPayment(payment: Payment, payerEmail?: string, payerCpf?: string): Promise<{
+  async createPayment(payment: Payment, payerEmail?: string, payerCpf?: string, metadata?: Record<string, string>): Promise<{
     id: string;
     status: string;
     status_detail: string;
@@ -89,7 +90,11 @@ export class MercadoPagoClient implements IMercadoPagoClient {
             number: payerCpf.replace(/\D/g, '') // Remove formatação do CPF
           } : undefined
         },
-        metadata: {
+        metadata: metadata ? {
+          ...metadata,
+          profile_id: metadata.profile_id || payment.getProfileId(),
+          subscription_plan: metadata.subscription_plan || payment.getDescription() || 'basic'
+        } : {
           profile_id: payment.getProfileId(),
           subscription_plan: payment.getDescription() || 'basic'
         },

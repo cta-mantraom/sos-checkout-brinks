@@ -156,21 +156,83 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           amount: paymentDetails.transaction_amount
         });
         
-        // Extrair profileId dos metadados
+        // Verificar se é novo fluxo (tem profileData) ou fluxo antigo (tem profileId)
+        const isNewFlow = paymentDetails.metadata?.isNewFlow === 'true';
+        const profileDataJson = paymentDetails.metadata?.profileData as string;
+        const temporaryProfileId = paymentDetails.metadata?.temporaryProfileId as string;
         const profileId = paymentDetails.metadata?.profile_id || 
-                         paymentDetails.external_reference;
+                         paymentDetails.external_reference ||
+                         temporaryProfileId;
         
-        if (!profileId) {
-          logger.error('ProfileId not found in MercadoPago payment', undefined, {
+        if (!profileId && !profileDataJson) {
+          logger.error('Neither profileId nor profileData found in MercadoPago payment', undefined, {
             externalId: webhookData.data.id,
             metadata: paymentDetails.metadata
           });
           
           return createCorsResponse({
             success: false,
-            error: 'ProfileId not found in payment metadata',
-            code: 'PROFILE_ID_MISSING'
+            error: 'Profile information not found in payment metadata',
+            code: 'PROFILE_INFO_MISSING'
           }, 400, req, res, corsOptions);
+        }
+        
+        // Se é novo fluxo, criar perfil agora
+        let actualProfileId = profileId;
+        if (isNewFlow && profileDataJson) {
+          try {
+            const profileData = JSON.parse(profileDataJson);
+            logger.info('Creating profile from webhook (new flow)', {
+              temporaryId: temporaryProfileId,
+              email: profileData.email
+            });
+            
+            // Criar perfil usando o serviço
+            const createdProfile = await services.profileService.createProfile({
+              fullName: profileData.fullName,
+              cpf: profileData.cpf,
+              phone: profileData.phone,
+              email: profileData.email,
+              bloodType: profileData.bloodType || 'O+',
+              emergencyContact: profileData.emergencyContact,
+              medicalInfo: profileData.medicalInfo || {
+                allergies: [],
+                medications: [],
+                medicalConditions: [],
+                additionalNotes: ''
+              },
+              subscriptionPlan: profileData.subscriptionPlan
+            });
+            
+            actualProfileId = createdProfile.getId();
+            
+            // Criar subscription
+            const { Subscription } = await import('../lib/domain/entities/Subscription.js');
+            const subscription = Subscription.create({
+              profileId: actualProfileId,
+              plan: profileData.subscriptionPlan
+            });
+            await services.subscriptionRepository.save(subscription);
+            
+            logger.info('Profile and subscription created from webhook', {
+              profileId: actualProfileId,
+              subscriptionId: subscription.getId(),
+              plan: profileData.subscriptionPlan
+            });
+            
+          } catch (error) {
+            logger.error('Failed to create profile from webhook', error as Error, {
+              externalId: webhookData.data.id,
+              temporaryProfileId
+            });
+            
+            return createCorsResponse({
+              success: false,
+              error: 'Failed to create profile',
+              message: error instanceof Error ? error.message : 'Unknown error',
+              code: 'PROFILE_CREATION_FAILED'
+            }, 500, req, res, corsOptions);
+          }
         }
         
         // Criar e salvar payment
@@ -191,7 +253,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         
         payment = Payment.create({
-          profileId: profileId as string,
+          profileId: actualProfileId || profileId as string,
           amount: paymentDetails.transaction_amount,
           paymentMethodId: paymentDetails.payment_method_id,
           paymentMethod: paymentMethod,
@@ -265,14 +327,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const profile = await services.profileService.getProfileById(payment.getProfileId());
         
         if (profile) {
+          // Atualizar status do perfil para aprovado
           profile.updatePaymentStatus(PaymentStatus.APPROVED);
           await services.profileRepository.update(profile);
           
           // Tentar gerar QR Code se ainda não foi gerado
           try {
-            await services.qrCodeService.generateQRCode(profile.getId());
+            const qrCodeUrl = await services.qrCodeService.generateQRCode(profile.getId());
+            
+            // Atualizar perfil com URL do QR Code
+            profile.setQRCodeUrl(qrCodeUrl);
+            await services.profileRepository.update(profile);
+            
             logger.qrCodeLog('generated', profile.getId(), { 
-              reason: 'webhook_payment_approved' 
+              reason: 'webhook_payment_approved',
+              qrCodeUrl 
             });
           } catch (qrError) {
             logger.error('Failed to generate QR Code on webhook', qrError as Error, {
@@ -280,6 +349,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               paymentId: payment.getId()
             });
           }
+        } else {
+          logger.warn('Profile not found for approved payment', {
+            profileId: payment.getProfileId(),
+            paymentId: payment.getId()
+          });
         }
       }
 
