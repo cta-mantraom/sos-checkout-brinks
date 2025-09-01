@@ -196,19 +196,41 @@ export function PaymentBrick({
                 // PIX vem como 'pix'
                 const isPix = paymentMethodId === 'pix';
                 
+                // Mapeamento completo dos payment_method_id do MercadoPago
+                const creditCardMethods = [
+                  'visa', 'master', 'mastercard', 'amex', 'elo', 'hipercard', 
+                  'diners', 'tarshop', 'cencosud', 'cmr_falabella', 'argencard',
+                  'naranja', 'maestro', 'cabal', 'shopping'
+                ];
+                
+                const debitCardMethods = [
+                  'debvisa', 'debmaster', 'debelo', 'debcabal', 'debmae', 
+                  'debmastro', 'debnaranja', 'maestro_internacional'
+                ];
+                
                 // Mapear tipos de pagamento - APENAS PIX, CRÉDITO e DÉBITO
                 let paymentMethod: 'credit_card' | 'debit_card' | 'pix';
                 
                 if (isPix) {
                   paymentMethod = 'pix';
                   paymentMethodId = 'pix';
+                } else if (paymentMethodId && debitCardMethods.includes(paymentMethodId.toLowerCase())) {
+                  paymentMethod = 'debit_card';
+                } else if (paymentMethodId && creditCardMethods.includes(paymentMethodId.toLowerCase())) {
+                  paymentMethod = 'credit_card';
                 } else if (paymentMethodId && (paymentMethodId.includes('debit') || paymentMethodId.includes('debito'))) {
+                  // Fallback para métodos com 'debit' no nome
                   paymentMethod = 'debit_card';
                 } else if (paymentMethodId && (paymentMethodId.includes('credit') || paymentMethodId.includes('credito'))) {
+                  // Fallback para métodos com 'credit' no nome
+                  paymentMethod = 'credit_card';
+                } else if (paymentMethodId) {
+                  // ✅ DEFAULT SEGURO: Se não identificado especificamente, assumir cartão de crédito
+                  // A maioria dos payment_method_id desconhecidos são cartões de crédito
+                  console.warn(`Método de pagamento não mapeado, assumindo crédito: ${paymentMethodId}`);
                   paymentMethod = 'credit_card';
                 } else {
-                  // Se não identificado, lançar erro em vez de defaultar
-                  throw new Error(`Método de pagamento não identificado: ${paymentMethodId}`);
+                  throw new Error('Método de pagamento não foi detectado pelo Payment Brick');
                 }
                 
                 console.log('Método de pagamento identificado:', { 
