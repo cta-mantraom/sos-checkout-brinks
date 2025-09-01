@@ -120,7 +120,7 @@ export const samplePaymentData = {
   id: 'payment_789123',
   status: 'approved' as const,
   externalId: 'mp_payment_456789',
-  amount: 19.90,
+  amount: 5.00,
   installments: 1,
   paymentMethod: 'pix',
   createdAt: new Date().toISOString(),
@@ -137,7 +137,7 @@ export const sampleSubscriptions: Record<SubscriptionType, {
 }> = {
   basic: {
     name: 'Plano Básico',
-    price: 19.90,
+    price: 5.00,
     duration: 30,
     features: [
       'Perfil médico completo',
@@ -149,7 +149,7 @@ export const sampleSubscriptions: Record<SubscriptionType, {
   },
   premium: {
     name: 'Plano Premium',
-    price: 199.90,
+    price: 10.00,
     duration: 365,
     features: [
       'Tudo do plano Básico',

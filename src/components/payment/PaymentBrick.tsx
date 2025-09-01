@@ -19,7 +19,6 @@ interface MercadoPagoBrickData {
     id?: string;
     type?: string;
   };
-  token?: string;
   installments?: number;
   payer?: {
     email?: string;
@@ -31,7 +30,6 @@ interface MercadoPagoBrickData {
   formData?: {
     payment_method_id?: string;
     payment_method?: string;
-    token?: string;
     installments?: number;
     payer?: {
       email?: string;
@@ -148,8 +146,8 @@ export function PaymentBrick({
               creditCard: 'all',
               debitCard: 'all',
               bankTransfer: 'all',  // PIX
-              ticket: 'none',  // Sem boleto
-              mercadoPago: 'none',  // Sem MercadoPago Wallet
+              ticket: 'none',  // Desabilitar boleto
+              mercadoPago: 'none',  // Desabilitar MercadoPago Wallet
             },
             visual: {
               style: {
@@ -195,8 +193,8 @@ export function PaymentBrick({
                                      brickData.formData?.payment_method_id ||
                                      brickData.formData?.payment_method;
                 
-                // PIX vem como 'pix' ou sem token
-                const isPix = paymentMethodId === 'pix' || (!paymentMethodId && !brickData.token);
+                // PIX vem como 'pix'
+                const isPix = paymentMethodId === 'pix';
                 
                 // Mapear tipos de pagamento - APENAS PIX, CRÉDITO e DÉBITO
                 let paymentMethod: 'credit_card' | 'debit_card' | 'pix';
@@ -204,23 +202,18 @@ export function PaymentBrick({
                 if (isPix) {
                   paymentMethod = 'pix';
                   paymentMethodId = 'pix';
-                } else if (brickData.token) {
-                  // Tem token = cartão, verificar se é débito ou crédito
-                  if (paymentMethodId && (paymentMethodId.includes('debit') || paymentMethodId.includes('debito'))) {
-                    paymentMethod = 'debit_card';
-                  } else {
-                    paymentMethod = 'credit_card';
-                  }
+                } else if (paymentMethodId && (paymentMethodId.includes('debit') || paymentMethodId.includes('debito'))) {
+                  paymentMethod = 'debit_card';
+                } else if (paymentMethodId && (paymentMethodId.includes('credit') || paymentMethodId.includes('credito'))) {
+                  paymentMethod = 'credit_card';
                 } else {
-                  // Default para PIX se não identificado
-                  paymentMethod = 'pix';
-                  paymentMethodId = 'pix';
+                  // Se não identificado, lançar erro em vez de defaultar
+                  throw new Error(`Método de pagamento não identificado: ${paymentMethodId}`);
                 }
                 
                 console.log('Método de pagamento identificado:', { 
                   paymentMethodId, 
                   paymentMethod,
-                  hasToken: !!brickData.token,
                   isPix 
                 });
                 
@@ -230,7 +223,6 @@ export function PaymentBrick({
                   amount,
                   paymentMethodId: paymentMethodId || 'pix',
                   paymentMethod: paymentMethod,
-                  token: brickData.token || brickData.formData?.token,
                   installments: brickData.installments || brickData.formData?.installments || 1,
                   payer: {
                     email: brickData.payer?.email || brickData.formData?.payer?.email || profileData.email,
@@ -246,7 +238,6 @@ export function PaymentBrick({
                   amount,
                   paymentMethodId: paymentMethodId || 'pix',
                   paymentMethod: paymentMethod,
-                  token: brickData.token || brickData.formData?.token,
                   installments: brickData.installments || brickData.formData?.installments || 1,
                   payer: {
                     email: brickData.payer?.email || brickData.formData?.payer?.email,
@@ -254,10 +245,7 @@ export function PaymentBrick({
                   }
                 };
 
-                // Validações adicionais
-                if ((paymentMethod === 'credit_card' || paymentMethod === 'debit_card') && !transformedData.token) {
-                  console.warn('Token ausente para pagamento com cartão');
-                }
+                // Payment Brick gerencia tokenização automaticamente
                 
                 console.log('Dados transformados para envio:', transformedData);
 
@@ -559,7 +547,6 @@ export function PaymentBrick({
             <span className="bg-gray-100 px-2 py-1 rounded">PIX</span>
             <span className="bg-gray-100 px-2 py-1 rounded">Cartão de Crédito</span>
             <span className="bg-gray-100 px-2 py-1 rounded">Cartão de Débito</span>
-            <span className="bg-gray-100 px-2 py-1 rounded">Boleto Bancário</span>
           </div>
         </CardContent>
       </Card>

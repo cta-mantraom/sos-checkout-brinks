@@ -31,7 +31,6 @@ const PaymentWithProfileSchema = z.object({
   amount: z.number().positive('Valor deve ser positivo'),
   paymentMethodId: z.string().min(1, 'Método de pagamento é obrigatório'),
   paymentMethod: z.enum(['credit_card', 'debit_card', 'pix', 'boleto']),
-  token: z.string().optional(),
   installments: z.number().int().min(1).max(12).default(1),
   description: z.string().optional(),
   
@@ -76,8 +75,8 @@ export class PaymentWithProfileDTO {
       
       // Garantir valor correto baseado no plano
       const expectedAmounts: Record<string, number> = {
-        basic: 19.90,
-        premium: 39.90
+        basic: 5.00,
+        premium: 10.00
       };
       
       const expectedAmount = expectedAmounts[parsed.profileData.subscriptionPlan];
@@ -104,32 +103,27 @@ export class PaymentWithProfileDTO {
   }
   
   static getPaymentMethodRequirements(method: string): {
-    requiresToken: boolean;
     allowsInstallments: boolean;
     maxInstallments: number;
   } {
     switch (method) {
       case 'credit_card':
         return {
-          requiresToken: true,
           allowsInstallments: true,
           maxInstallments: 12
         };
       case 'debit_card':
         return {
-          requiresToken: true,
           allowsInstallments: false,
           maxInstallments: 1
         };
       case 'pix':
         return {
-          requiresToken: false,
           allowsInstallments: false,
           maxInstallments: 1
         };
       case 'boleto':
         return {
-          requiresToken: false,
           allowsInstallments: false,
           maxInstallments: 1
         };

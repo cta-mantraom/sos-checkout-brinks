@@ -10,7 +10,6 @@ export interface MercadoPagoConfig {
 export interface MercadoPagoPaymentRequest {
   transaction_amount: number;
   payment_method_id: string;
-  token?: string;
   installments?: number;
   payer: {
     email: string;
@@ -80,7 +79,6 @@ export class MercadoPagoClient implements IMercadoPagoClient {
       const paymentData: MercadoPagoPaymentRequest = {
         transaction_amount: payment.getAmount(),
         payment_method_id: payment.getPaymentMethod(),
-        token: payment.getToken(),
         installments: payment.getInstallments(),
         payer: {
           email: email,

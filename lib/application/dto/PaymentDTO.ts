@@ -20,7 +20,6 @@ const CreatePaymentSchemaBase = z.object({
     errorMap: () => ({ message: 'Método de pagamento deve ser credit_card, debit_card, pix ou boleto' })
   }),
   
-  token: z.string().optional(),
   
   installments: z.number()
     .int('Parcelas deve ser um número inteiro')
@@ -45,11 +44,6 @@ const CreatePaymentSchemaBase = z.object({
 
 // Schema com validações condicionais
 const CreatePaymentSchema = CreatePaymentSchemaBase.refine((data) => {
-  // Validação condicional: cartão precisa de token
-  if (['credit_card', 'debit_card'].includes(data.paymentMethod) && !data.token) {
-    return false;
-  }
-  
   // PIX e boleto não aceitam parcelamento
   if (['pix', 'boleto'].includes(data.paymentMethod) && data.installments > 1) {
     return false;
@@ -219,32 +213,27 @@ export class PaymentDTO {
 
   // Validações específicas por método de pagamento
   static getPaymentMethodRequirements(method: string): {
-    requiresToken: boolean;
     allowsInstallments: boolean;
     maxInstallments: number;
     description: string;
   } {
     const requirements = {
       credit_card: {
-        requiresToken: true,
         allowsInstallments: true,
         maxInstallments: 12,
         description: 'Cartão de Crédito'
       },
       debit_card: {
-        requiresToken: true,
         allowsInstallments: false,
         maxInstallments: 1,
         description: 'Cartão de Débito'
       },
       pix: {
-        requiresToken: false,
         allowsInstallments: false,
         maxInstallments: 1,
         description: 'PIX'
       },
       boleto: {
-        requiresToken: false,
         allowsInstallments: false,
         maxInstallments: 1,
         description: 'Boleto Bancário'
@@ -252,7 +241,6 @@ export class PaymentDTO {
     };
 
     return requirements[method as keyof typeof requirements] || {
-      requiresToken: false,
       allowsInstallments: false,
       maxInstallments: 1,
       description: 'Método desconhecido'

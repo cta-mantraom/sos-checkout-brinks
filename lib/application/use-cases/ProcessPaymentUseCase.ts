@@ -105,9 +105,6 @@ export class ProcessPaymentUseCase {
         (validatedData as PaymentWithProfileData).paymentMethod : 
         (validatedData as CreatePaymentData).paymentMethod;
         
-      const token = isNewFlow ? 
-        (validatedData as PaymentWithProfileData).token : 
-        (validatedData as CreatePaymentData).token;
         
       const installments = isNewFlow ? 
         (validatedData as PaymentWithProfileData).installments : 
@@ -122,7 +119,6 @@ export class ProcessPaymentUseCase {
         amount: paymentAmount,
         paymentMethodId: paymentMethodId,
         paymentMethod: paymentMethod,
-        token: token,
         installments: installments || 1,
         description: description || `Assinatura ${profile.getSubscriptionPlan()}`
       });

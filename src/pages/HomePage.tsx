@@ -73,7 +73,7 @@ const testimonials = [
 const plans = [
   {
     name: 'Básico',
-    price: 19.90,
+    price: 5.00,
     duration: '30 dias',
     description: 'Ideal para começar',
     features: [
@@ -87,7 +87,7 @@ const plans = [
   },
   {
     name: 'Premium',
-    price: 199.90,
+    price: 10.00,
     duration: '365 dias',
     description: 'Máxima proteção',
     features: [

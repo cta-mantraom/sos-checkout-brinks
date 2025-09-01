@@ -8,7 +8,6 @@ export interface CreatePaymentProps {
   amount: number;
   paymentMethodId: string;
   paymentMethod: PaymentMethod;
-  token?: string;
   installments?: number;
   description?: string;
   externalId?: string;
@@ -22,7 +21,6 @@ export interface PaymentDTO {
   paymentMethod: PaymentMethod;
   status: string;
   mercadoPagoId?: string;
-  token?: string;
   installments: number;
   description?: string;
   pixQrCode?: string;
@@ -48,7 +46,6 @@ export class Payment {
     private readonly paymentMethod: PaymentMethod,
     private status: PaymentStatus,
     private mercadoPagoId?: string,
-    private readonly token?: string,
     private readonly installments: number = 1,
     private readonly description?: string,
     private pixQrCode?: string,
@@ -97,7 +94,6 @@ export class Payment {
       props.paymentMethod,
       PaymentStatus.PENDING,
       props.externalId, // MercadoPago ID quando criado via webhook
-      props.token,
       props.installments || 1,
       props.description?.trim(),
       undefined,
@@ -120,7 +116,6 @@ export class Payment {
       dto.paymentMethod,
       PaymentStatus.create(dto.status),
       dto.mercadoPagoId,
-      dto.token,
       dto.installments,
       dto.description,
       dto.pixQrCode,
@@ -158,12 +153,10 @@ export class Payment {
     switch (method) {
       case 'credit_card':
       case 'debit_card':
-        if (!props.token) {
-          throw ValidationError.required('token para pagamento com cartão');
-        }
+        // Payment Brick gerencia tokenização automaticamente
         break;
       case 'pix':
-        // PIX não precisa de token nem parcelas
+        // PIX não aceita parcelamento
         if (props.installments && props.installments > 1) {
           throw ValidationError.invalid('installments', props.installments, 'PIX não aceita parcelamento');
         }
@@ -212,9 +205,6 @@ export class Payment {
     return this.mercadoPagoId;
   }
 
-  getToken(): string | undefined {
-    return this.token;
-  }
 
   getInstallments(): number {
     return this.installments;
@@ -352,7 +342,6 @@ export class Payment {
       paymentMethod: this.paymentMethod,
       status: this.status.getValue(),
       mercadoPagoId: this.mercadoPagoId,
-      token: this.token,
       installments: this.installments,
       description: this.description,
       pixQrCode: this.pixQrCode,

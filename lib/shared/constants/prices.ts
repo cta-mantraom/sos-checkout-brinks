@@ -1,6 +1,6 @@
 export const SUBSCRIPTION_PRICES = {
-  basic: 19.90,
-  premium: 199.90
+  basic: 5.00,
+  premium: 10.00
 } as const;
 
 export const PAYMENT_LIMITS = {

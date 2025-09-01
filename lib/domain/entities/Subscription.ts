@@ -31,8 +31,8 @@ export class Subscription {
   };
 
   private static readonly PLAN_PRICES: Record<SubscriptionPlan, number> = {
-    basic: 19.90,    // R$ 19,90
-    premium: 199.90  // R$ 199,90
+    basic: 5.00,    // R$ 5,00
+    premium: 10.00  // R$ 10,00
   };
 
   private constructor(
