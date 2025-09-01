@@ -1,10 +1,10 @@
-import { ConfigSingleton, ConfigMask } from '../utils';
+import { ConfigSingleton, ConfigMask } from '../utils/index.js';
 import {
   PaymentConfigSchema,
   PaymentEnvSchema,
   type PaymentConfig,
   type PaymentEnv,
-} from '../schemas';
+} from '../schemas/index.js';
 
 /**
  * Configuração de pagamento com singleton + lazy loading

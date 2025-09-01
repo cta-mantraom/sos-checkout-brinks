@@ -1,10 +1,10 @@
-import { ConfigSingleton, ConfigMask } from '../utils';
+import { ConfigSingleton, ConfigMask } from '../utils/index.js';
 import {
   AppConfigSchema,
   AppEnvSchema,
   type AppConfig,
   type AppEnv,
-} from '../schemas';
+} from '../schemas/index.js';
 
 /**
  * Configuração da aplicação com singleton + lazy loading

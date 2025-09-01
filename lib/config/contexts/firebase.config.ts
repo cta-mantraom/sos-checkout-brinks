@@ -1,10 +1,10 @@
-import { ConfigSingleton, ConfigMask } from '../utils';
+import { ConfigSingleton, ConfigMask } from '../utils/index.js';
 import {
   FirebaseConfigSchema,
   FirebaseEnvSchema,
   type FirebaseConfig as FirebaseConfigType,
   type FirebaseEnv,
-} from '../schemas';
+} from '../schemas/index.js';
 
 /**
  * Configuração do Firebase com singleton + lazy loading
