@@ -12,7 +12,22 @@ class Logger {
   private environment: string;
 
   constructor() {
-    this.environment = process.env.NODE_ENV || 'development';
+    // Lazy loading da configuração apenas quando necessário
+    this.environment = 'development'; // Default seguro
+    this.initializeEnvironment();
+  }
+
+  private initializeEnvironment(): void {
+    try {
+      // Importação dinâmica para evitar dependência circular
+      const { getAppConfig } = require('../../config/index.js');
+      const appConfig = getAppConfig();
+      this.environment = appConfig.environment;
+    } catch (error) {
+      // Fallback para process.env apenas se config não estiver disponível
+      this.environment = process.env.NODE_ENV || 'development';
+      console.warn('[Logger] Using fallback environment detection');
+    }
   }
 
   private formatMessage(data: LogData): string {

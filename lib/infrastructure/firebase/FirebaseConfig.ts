@@ -92,8 +92,16 @@ export class FirebaseConfig {
   }
 }
 
-// Função helper para inicializar com variáveis de ambiente
+/**
+ * Função helper DEPRECADA - usar getFirebaseInitConfig() da nova arquitetura
+ * @deprecated Use getFirebaseInitConfig() from lib/config instead
+ */
 export function initializeFirebaseFromEnv(): FirebaseConfig {
+  console.warn(
+    '[DEPRECATED] initializeFirebaseFromEnv() is deprecated. ' +
+    'Use getFirebaseInitConfig() from lib/config instead.'
+  );
+  
   const config: FirebaseConfigOptions = {
     projectId: process.env.FIREBASE_PROJECT_ID!,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,

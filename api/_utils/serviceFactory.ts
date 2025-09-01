@@ -8,8 +8,9 @@ import { FirebaseUserRepository } from '../../lib/infrastructure/repositories/Fi
 import { FirebaseSubscriptionRepository } from '../../lib/infrastructure/repositories/FirebaseSubscriptionRepository.js';
 import { FirebasePaymentRepository } from '../../lib/infrastructure/repositories/FirebasePaymentRepository.js';
 import { FirestoreClient } from '../../lib/infrastructure/firebase/FirestoreClient.js';
-import { initializeFirebaseFromEnv } from '../../lib/infrastructure/firebase/FirebaseConfig.js';
+import { FirebaseConfig } from '../../lib/infrastructure/firebase/FirebaseConfig.js';
 import { MercadoPagoClient } from '../../lib/infrastructure/mercadopago/MercadoPagoClient.js';
+import { getFirebaseInitConfig, getMercadoPagoClientConfig } from '../../lib/config/index.js';
 
 // Cache para evitar múltiplas inicializações
 let cachedServices: ServiceContainer | null = null;
@@ -42,16 +43,13 @@ export function initializeServices(): ServiceContainer {
   }
 
   try {
-    // Inicializar Firebase
-    const firebaseConfig = initializeFirebaseFromEnv();
+    // Inicializar Firebase usando configuração desacoplada
+    const firebaseInitConfig = getFirebaseInitConfig();
+    const firebaseConfig = FirebaseConfig.getInstance(firebaseInitConfig);
     const firestoreClient = new FirestoreClient(firebaseConfig);
     
-    // Inicializar MercadoPago
-    const mercadoPagoConfig = {
-      accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
-      webhookSecret: process.env.MERCADOPAGO_WEBHOOK_SECRET || '',
-      environment: (process.env.NODE_ENV === 'production' ? 'production' : 'sandbox') as 'production' | 'sandbox'
-    };
+    // Inicializar MercadoPago usando configuração desacoplada
+    const mercadoPagoConfig = getMercadoPagoClientConfig();
     const mercadoPagoClient = new MercadoPagoClient(mercadoPagoConfig);
     
     // Repositórios
@@ -136,18 +134,34 @@ export function clearServiceCache(): void {
   cachedServices = null;
 }
 
-// Função helper para validação de ambiente
+// Função helper para validação de ambiente usando configurações desacopladas
 export function validateEnvironment(): string[] {
-  const requiredEnvVars = [
-    'FIREBASE_PROJECT_ID',
-    'FIREBASE_CLIENT_EMAIL',
-    'FIREBASE_PRIVATE_KEY',
-    'MERCADOPAGO_ACCESS_TOKEN'
-  ];
-  
-  const missing = requiredEnvVars.filter(envVar => !process.env[envVar]);
-  
-  return missing;
+  const missing: string[] = [];
+
+  try {
+    // Tenta carregar configurações - se falhar, há variáveis ausentes
+    getFirebaseInitConfig();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('ausentes')) {
+      const match = error.message.match(/ausentes: (.+)$/);
+      if (match) {
+        missing.push(...match[1].split(', '));
+      }
+    }
+  }
+
+  try {
+    getMercadoPagoClientConfig();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('ausentes')) {
+      const match = error.message.match(/ausentes: (.+)$/);
+      if (match) {
+        missing.push(...match[1].split(', '));
+      }
+    }
+  }
+
+  return [...new Set(missing)]; // Remove duplicatas
 }
 
 // Função para verificar se os serviços estão saudáveis

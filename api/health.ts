@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { healthCheck, validateEnvironment } from './_utils/serviceFactory.js';
 import { createCorsResponse, handleCorsPreFlight, validateCorsOrigin } from './_utils/cors.js';
 import { logger } from '../lib/shared/utils/logger.js';
+import { getAppConfig } from '../lib/config/index.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
@@ -37,12 +38,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Validação básica de environment
     const missingEnvVars = validateEnvironment();
 
+    // Obter configuração da aplicação
+    const appConfig = getAppConfig();
+
     // Health check básico
     const basicHealth = {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
+      version: appConfig.version,
+      environment: appConfig.environment,
       uptime: process.uptime(),
       memory: process.memoryUsage()
     };

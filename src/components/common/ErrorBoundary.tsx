@@ -88,7 +88,7 @@ function DefaultErrorFallback({ error, resetError }: ErrorFallbackProps) {
           </AlertDescription>
         </Alert>
         
-        {process.env.NODE_ENV === 'development' && (
+        {import.meta.env.DEV && (
           <details className="text-sm">
             <summary className="cursor-pointer font-medium text-gray-700 hover:text-gray-900">
               Detalhes técnicos (apenas em desenvolvimento)
