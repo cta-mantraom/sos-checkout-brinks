@@ -9,19 +9,19 @@
  */
 
 // Schemas - para validação manual se necessário
-export * from './schemas';
+export * from './schemas/index';
 
 // Contexts - configurações por domínio
-export * from './contexts';
+export * from './contexts/index';
 
 // Validators - para validação customizada
-export * from './validators';
+export * from './validators/index';
 
 // Types - para tipagem
-export * from './types';
+export * from './types/index';
 
 // Utils - para implementação de configs customizadas
-export * from './utils';
+export * from './utils/index';
 
 // ============================================================================
 // BACKWARD COMPATIBILITY - Para facilitar migração gradual

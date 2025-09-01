@@ -20,7 +20,7 @@ class Logger {
   private initializeEnvironment(): void {
     try {
       // Importação dinâmica para evitar dependência circular
-      const { getAppConfig } = require('../../config/index.js');
+      const { getAppConfig } = require('../../config/exports.js');
       const appConfig = getAppConfig();
       this.environment = appConfig.environment;
     } catch (error) {

@@ -10,7 +10,7 @@ import { FirebasePaymentRepository } from '../../lib/infrastructure/repositories
 import { FirestoreClient } from '../../lib/infrastructure/firebase/FirestoreClient.js';
 import { FirebaseConfig } from '../../lib/infrastructure/firebase/FirebaseConfig.js';
 import { MercadoPagoClient } from '../../lib/infrastructure/mercadopago/MercadoPagoClient.js';
-import { getFirebaseInitConfig, getMercadoPagoClientConfig } from '../../lib/config/index.js';
+import { getFirebaseInitConfig, getMercadoPagoClientConfig } from '../../lib/config/exports.js';
 
 // Cache para evitar múltiplas inicializações
 let cachedServices: ServiceContainer | null = null;

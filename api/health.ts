@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { healthCheck, validateEnvironment } from './_utils/serviceFactory.js';
 import { createCorsResponse, handleCorsPreFlight, validateCorsOrigin } from './_utils/cors.js';
 import { logger } from '../lib/shared/utils/logger.js';
-import { getAppConfig } from '../lib/config/index.js';
+import { getAppConfig } from '../lib/config/exports.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
