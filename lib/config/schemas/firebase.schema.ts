@@ -62,6 +62,7 @@ export const FirebaseEnvSchema = z.object({
 });
 
 // Types exportados derivados dos schemas
-export type FirebaseCredentials = z.infer<typeof FirebaseCredentialsSchema>;
-export type FirebaseConfig = z.infer<typeof FirebaseConfigSchema>;
-export type FirebaseEnv = z.infer<typeof FirebaseEnvSchema>;
+// Usando z.output para garantir que defaults sejam aplicados corretamente
+export type FirebaseCredentials = z.output<typeof FirebaseCredentialsSchema>;
+export type FirebaseConfig = z.output<typeof FirebaseConfigSchema>;
+export type FirebaseEnv = z.output<typeof FirebaseEnvSchema>;

@@ -223,12 +223,13 @@ export function maskSensitiveData(data: string, type: 'cpf' | 'phone' | 'email' 
       return data.replace(/(\d{3})\.\d{3}\.(\d{3})-\d{2}/, '$1.***.***-**');
     case 'phone':
       return data.replace(/\((\d{2})\)\s\d{4,5}-(\d{4})/, '($1) *****-$2');
-    case 'email':
+    case 'email': {
       const [username, domain] = data.split('@');
       const maskedUsername = username.length > 2 
         ? username.substring(0, 2) + '*'.repeat(username.length - 2)
         : username;
       return `${maskedUsername}@${domain}`;
+    }
     case 'card':
       return data.replace(/(\d{4})\s\d{4}\s\d{4}\s(\d{4})/, '$1 **** **** $2');
     default:

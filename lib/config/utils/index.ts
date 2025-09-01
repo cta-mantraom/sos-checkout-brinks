@@ -7,8 +7,8 @@ export {
   ConfigSingleton,
   RequireConfig,
   type SingletonConfig,
-} from './singleton';
+} from './singleton.js';
 
 export {
   ConfigMask,
-} from './mask';
+} from './mask.js';

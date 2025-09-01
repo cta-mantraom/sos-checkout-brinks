@@ -21,9 +21,9 @@ export type {
   RateLimitConfig,
   CorsConfig,
   ConfigFromSchema,
-} from './config.types';
+} from './config.types.js';
 
 export {
   ConfigLogLevel,
   Environment,
-} from './config.types';
+} from './config.types.js';

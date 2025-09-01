@@ -161,7 +161,7 @@ export function validateEnvironment(): string[] {
     }
   }
 
-  return [...new Set(missing)]; // Remove duplicatas
+  return Array.from(new Set(missing)); // Remove duplicatas
 }
 
 // Função para verificar se os serviços estão saudáveis

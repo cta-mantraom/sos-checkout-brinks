@@ -13,18 +13,20 @@ export abstract class ConfigSingleton<T> {
   }
 
   /**
-   * Método genérico para obter instância singleton
+   * Método auxiliar protegido para implementação de singleton
+   * Cada service deve implementar seu próprio getInstance para evitar conflitos de tipos
    */
-  protected static getInstance<K extends ConfigSingleton<unknown>>(
-    this: new (configKey: string) => K,
-    configKey: string
-  ): K {
+  protected static getOrCreateInstance<TService>(
+    configKey: string,
+    factory: () => TService
+  ): TService {
     if (!ConfigSingleton.instances.has(configKey)) {
-      const instance = new this(configKey);
-      ConfigSingleton.instances.set(configKey, instance);
+      const instance = factory();
+      ConfigSingleton.instances.set(configKey, instance as ConfigSingleton<unknown>);
+      return instance;
     }
     
-    return ConfigSingleton.instances.get(configKey) as K;
+    return ConfigSingleton.instances.get(configKey) as TService;
   }
 
   /**
@@ -48,7 +50,7 @@ export abstract class ConfigSingleton<T> {
    * Hook executado após carregamento da configuração
    * Útil para logging, cache, etc.
    */
-  protected onConfigLoaded(config: T): void {
+  protected onConfigLoaded(_config: T): void {
     console.debug(`[${this.configKey}] Configuration loaded successfully`);
   }
 
@@ -111,8 +113,8 @@ export abstract class ConfigSingleton<T> {
  * Decorator para métodos que requerem configuração carregada
  */
 export function RequireConfig<T>(
-  target: ConfigSingleton<T>,
-  propertyName: string,
+  _target: ConfigSingleton<T>,
+  _propertyName: string,
   descriptor: PropertyDescriptor
 ): void {
   const method = descriptor.value;

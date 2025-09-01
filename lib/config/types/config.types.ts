@@ -165,3 +165,12 @@ export interface CorsConfig {
  * Type helper para extrair tipo de configuração de um schema Zod
  */
 export type ConfigFromSchema<T> = T extends { parse: (input: unknown) => infer R } ? R : never;
+
+/**
+ * Type aliases adicionais para compatibilidade
+ */
+export type ConfigContext = string;
+export type ConfigValidator<T = unknown> = (value: unknown) => T;
+export type ConfigCache<T = unknown> = Map<string, T>;
+export type MaskedConfig<T = unknown> = Partial<T>;
+export type BaseConfig = Record<string, unknown>;

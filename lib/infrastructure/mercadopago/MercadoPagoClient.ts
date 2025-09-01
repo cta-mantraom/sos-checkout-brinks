@@ -299,8 +299,11 @@ export class MercadoPagoClient implements IMercadoPagoClient {
     const response = await fetch(url, options);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`HTTP ${response.status}: ${errorData.message || response.statusText}`);
+      const errorData: unknown = await response.json().catch(() => ({}));
+      const message = (errorData && typeof errorData === 'object' && 'message' in errorData && typeof errorData.message === 'string') 
+        ? errorData.message 
+        : response.statusText;
+      throw new Error(`HTTP ${response.status}: ${message}`);
     }
 
     return await response.json();

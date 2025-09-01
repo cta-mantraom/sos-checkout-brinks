@@ -235,7 +235,7 @@ export function validateFile(file: File, allowedTypes: string[], maxSize: number
  */
 export function validateDosage(dosage: string): boolean {
   // Allow formats like: "5mg", "2.5ml", "1 comprimido", "1/2 comprimido"
-  const dosageRegex = /^[\d\/\.]+\s*[a-zA-Z]*\s*[a-zA-Z\s]*$/;
+  const dosageRegex = /^[\d/.]+\s*[a-zA-Z]*\s*[a-zA-Z\s]*$/;
   return dosageRegex.test(dosage.trim());
 }
 

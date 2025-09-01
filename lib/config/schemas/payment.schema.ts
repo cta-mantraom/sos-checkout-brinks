@@ -72,6 +72,7 @@ export const PaymentEnvSchema = z.object({
 });
 
 // Types exportados derivados dos schemas
-export type MercadoPagoCredentials = z.infer<typeof MercadoPagoCredentialsSchema>;
-export type PaymentConfig = z.infer<typeof PaymentConfigSchema>;
-export type PaymentEnv = z.infer<typeof PaymentEnvSchema>;
+// Usando z.output para garantir que defaults sejam aplicados corretamente
+export type MercadoPagoCredentials = z.output<typeof MercadoPagoCredentialsSchema>;
+export type PaymentConfig = z.output<typeof PaymentConfigSchema>;
+export type PaymentEnv = z.output<typeof PaymentEnvSchema>;

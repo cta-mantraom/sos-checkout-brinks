@@ -3,6 +3,9 @@ import { IPaymentRepository } from './IPaymentRepository.js';
 import { FirestoreClient } from '../firebase/FirestoreClient.js';
 import { z } from 'zod';
 
+// Tipo para operadores Where do Firestore
+type WhereFilterOp = '<' | '<=' | '==' | '!=' | '>=' | '>' | 'array-contains' | 'in' | 'array-contains-any' | 'not-in';
+
 // Schema Zod para validação de dados Firestore
 const FirestorePaymentSchema = z.object({
   id: z.string(),
@@ -101,7 +104,7 @@ export class FirebasePaymentRepository implements IPaymentRepository {
     page: number;
     totalPages: number;
   }> {
-    const where = [];
+    const where: { field: string; operator: WhereFilterOp; value: unknown }[] = [];
     
     if (options.status) {
       where.push({ field: 'status', operator: '==' as const, value: options.status });

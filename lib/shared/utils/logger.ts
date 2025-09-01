@@ -17,11 +17,11 @@ class Logger {
     this.initializeEnvironment();
   }
 
-  private initializeEnvironment(): void {
+  private async initializeEnvironment(): Promise<void> {
     try {
       // Importação dinâmica para evitar dependência circular
-      const { getAppConfig } = require('../../config/exports.js');
-      const appConfig = getAppConfig();
+      const module = await import('../../config/exports.js');
+      const appConfig = module.getAppConfig();
       this.environment = appConfig.environment;
     } catch (error) {
       // Fallback para process.env apenas se config não estiver disponível

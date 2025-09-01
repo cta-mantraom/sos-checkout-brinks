@@ -1,5 +1,4 @@
 import { ConfigSingleton, ConfigMask } from '../utils';
-import { EnvValidator } from '../validators';
 import {
   PaymentConfigSchema,
   PaymentEnvSchema,
@@ -14,7 +13,7 @@ import {
 export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
   private static readonly CONFIG_KEY = 'payment';
 
-  private constructor() {
+  public constructor() {
     super(PaymentConfigService.CONFIG_KEY);
   }
 
@@ -22,7 +21,10 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
    * Obtém instância singleton
    */
   public static getInstance(): PaymentConfigService {
-    return super.getInstance(PaymentConfigService, PaymentConfigService.CONFIG_KEY);
+    return ConfigSingleton.getOrCreateInstance(
+      PaymentConfigService.CONFIG_KEY,
+      () => new PaymentConfigService()
+    );
   }
 
   /**
@@ -33,21 +35,18 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
       // 1. Validar variáveis de ambiente primeiro
       const envData = this.loadEnvironmentData();
       
-      // 2. Construir configuração completa
-      const config: PaymentConfig = {
+      // 2. Construir configuração usando dados parciais (defaults do schema serão aplicados)
+      const config = {
         mercadopago: {
           accessToken: envData.MERCADOPAGO_ACCESS_TOKEN,
           publicKey: envData.MERCADOPAGO_PUBLIC_KEY,
           webhookSecret: envData.MERCADOPAGO_WEBHOOK_SECRET,
-          environment: envData.NODE_ENV === 'production' ? 'production' : 'sandbox',
+          environment: envData.NODE_ENV === 'production' ? 'production' as const : 'sandbox' as const,
         },
-        timeout: 25000,
-        retryAttempts: 3,
         prices: {
-          basic: 5.00,
-          premium: 10.00,
+          basic: 5.00 as const,
+          premium: 10.00 as const,
         },
-        deviceIdScript: 'https://www.mercadopago.com/v2/security.js',
         paymentMethods: {
           creditCard: true,
           debitCard: true,
@@ -57,12 +56,8 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
         },
       };
 
-      // 3. Validar configuração final
-      const validatedConfig = EnvValidator.validate(
-        PaymentConfigSchema,
-        config,
-        'PaymentConfig'
-      );
+      // 3. Validar configuração final (defaults serão aplicados pelo schema)
+      const validatedConfig = PaymentConfigSchema.parse(config);
 
       // 4. Log com mascaramento
       this.logConfigLoaded(validatedConfig);
@@ -83,33 +78,26 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
    * Carrega e valida dados do ambiente
    */
   private loadEnvironmentData(): PaymentEnv {
-    // Lista de variáveis obrigatórias
-    const requiredVars = [
-      'MERCADOPAGO_ACCESS_TOKEN',
-      'MERCADOPAGO_PUBLIC_KEY',
-      'MERCADOPAGO_WEBHOOK_SECRET',
-    ];
-
-    // Verificar se todas as variáveis existem
-    const missingVars = EnvValidator.validateRequiredEnvVars(requiredVars);
+    // Verificar se todas as variáveis obrigatórias existem
+    const missingVars: string[] = [];
+    if (!process.env.MERCADOPAGO_ACCESS_TOKEN) missingVars.push('MERCADOPAGO_ACCESS_TOKEN');
+    if (!process.env.MERCADOPAGO_PUBLIC_KEY) missingVars.push('MERCADOPAGO_PUBLIC_KEY');
+    if (!process.env.MERCADOPAGO_WEBHOOK_SECRET) missingVars.push('MERCADOPAGO_WEBHOOK_SECRET');
+    
     if (missingVars.length > 0) {
       throw new Error(`Variáveis de ambiente obrigatórias ausentes: ${missingVars.join(', ')}`);
     }
 
-    // Criar objeto de environment data
+    // Criar objeto de environment data (schema aplicará defaults)
     const envData = {
       MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN!,
       MERCADOPAGO_PUBLIC_KEY: process.env.MERCADOPAGO_PUBLIC_KEY!,
       MERCADOPAGO_WEBHOOK_SECRET: process.env.MERCADOPAGO_WEBHOOK_SECRET!,
-      NODE_ENV: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
+      NODE_ENV: process.env.NODE_ENV as 'development' | 'production' | 'test' | undefined,
     };
 
-    // Validar com schema
-    return EnvValidator.validate(
-      PaymentEnvSchema,
-      envData,
-      'PaymentEnv'
-    );
+    // Validar com schema (defaults serão aplicados automaticamente)
+    return PaymentEnvSchema.parse(envData);
   }
 
   /**

@@ -9,7 +9,7 @@ export {
   getPaymentConfig,
   getMercadoPagoCredentials,
   getMercadoPagoClientConfig,
-} from './payment.config';
+} from './payment.config.js';
 
 // Firebase config
 export {
@@ -17,7 +17,7 @@ export {
   getFirebaseConfig,
   getFirebaseCredentials,
   getFirebaseInitConfig,
-} from './firebase.config';
+} from './firebase.config.js';
 
 // App config
 export {
@@ -26,4 +26,4 @@ export {
   isProduction,
   isDevelopment,
   getAppUrls,
-} from './app.config';
+} from './app.config.js';

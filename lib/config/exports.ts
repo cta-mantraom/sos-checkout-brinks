@@ -13,7 +13,7 @@ export {
   type MercadoPagoCredentials,
   type PaymentConfig,
   type PaymentEnv,
-} from './schemas/payment.schema';
+} from './schemas/payment.schema.js';
 
 export {
   FirebaseCredentialsSchema,
@@ -22,14 +22,14 @@ export {
   type FirebaseCredentials,
   type FirebaseConfig,
   type FirebaseEnv,
-} from './schemas/firebase.schema';
+} from './schemas/firebase.schema.js';
 
 export {
   AppConfigSchema,
   AppEnvSchema,
   type AppConfig,
   type AppEnv,
-} from './schemas/app.schema';
+} from './schemas/app.schema.js';
 
 // ============================================================================
 // CONTEXTS
@@ -39,14 +39,14 @@ export {
   getPaymentConfig,
   getMercadoPagoCredentials,
   getMercadoPagoClientConfig,
-} from './contexts/payment.config';
+} from './contexts/payment.config.js';
 
 export {
   FirebaseConfigService,
   getFirebaseConfig,
   getFirebaseCredentials,
   getFirebaseInitConfig,
-} from './contexts/firebase.config';
+} from './contexts/firebase.config.js';
 
 export {
   AppConfigService,
@@ -54,7 +54,7 @@ export {
   isProduction,
   isDevelopment,
   getAppUrls,
-} from './contexts/app.config';
+} from './contexts/app.config.js';
 
 // ============================================================================
 // VALIDATORS
@@ -64,7 +64,7 @@ export {
   validateRequiredEnvVars,
   getEnvVar,
   getRequiredEnvVar,
-} from './validators/env.validator';
+} from './validators/env.validator.js';
 
 // ============================================================================
 // TYPES
@@ -77,39 +77,44 @@ export type {
   MaskedConfig,
   BaseConfig,
   EnvironmentConfig,
-} from './types/config.types';
+} from './types/config.types.js';
 
 // ============================================================================
 // UTILS
 // ============================================================================
 export {
   ConfigSingleton,
-} from './utils/singleton';
+} from './utils/singleton.js';
 
 export {
   maskSensitiveData,
   maskToken,
   maskEmail,
   maskUrl,
-} from './utils/mask';
+} from './utils/mask.js';
 
 // ============================================================================
 // BACKWARD COMPATIBILITY
 // ============================================================================
-export { getPaymentConfig as paymentConfig } from './contexts/payment.config';
-export { getFirebaseConfig as firebaseConfig } from './contexts/firebase.config';
-export { getAppConfig as appConfig } from './contexts/app.config';
+export { getPaymentConfig as paymentConfig } from './contexts/payment.config.js';
+export { getFirebaseConfig as firebaseConfig } from './contexts/firebase.config.js';
+export { getAppConfig as appConfig } from './contexts/app.config.js';
 
 // Função de conveniência para inicialização completa
-export const initializeAllConfigs = () => {
+export const initializeAllConfigs = async () => {
+  const paymentModule = await import('./contexts/payment.config.js');
+  const firebaseModule = await import('./contexts/firebase.config.js');
+  const appModule = await import('./contexts/app.config.js');
+  
   return {
-    payment: () => getPaymentConfig(),
-    firebase: () => getFirebaseConfig(),
-    app: () => getAppConfig(),
+    payment: () => paymentModule.getPaymentConfig(),
+    firebase: () => firebaseModule.getFirebaseConfig(),
+    app: () => appModule.getAppConfig(),
   };
 };
 
 // Função para limpar todos os caches (útil para testes)
-export const clearAllConfigCaches = () => {
-  ConfigSingleton.clearAllCaches();
+export const clearAllConfigCaches = async () => {
+  const singletonModule = await import('./utils/singleton.js');
+  singletonModule.ConfigSingleton.clearAllCaches();
 };

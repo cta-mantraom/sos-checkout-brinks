@@ -206,3 +206,23 @@ export class ConfigMask {
     return `${value.slice(0, half)}...${value.slice(-half)} (${value.length} chars total)`;
   }
 }
+
+// Exportar funções standalone para compatibilidade
+export const maskSensitiveData = ConfigMask.mask;
+export const maskToken = (value: string) => ConfigMask.mask("token", value);
+export const maskEmail = (value: string) => {
+  const [localPart, domain] = value.split('@');
+  if (!domain) return '***';
+  const maskedLocal = localPart.length > 2 
+    ? `${localPart.slice(0, 2)}***`
+    : '***';
+  return `${maskedLocal}@${domain}`;
+};
+export const maskUrl = (url: string) => {
+  try {
+    const urlObj = new URL(url);
+    return `${urlObj.protocol}//${urlObj.hostname}***`;
+  } catch {
+    return '***';
+  }
+};

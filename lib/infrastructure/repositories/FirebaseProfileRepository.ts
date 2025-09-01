@@ -3,6 +3,9 @@ import { IProfileRepository } from './IProfileRepository.js';
 import { FirestoreClient } from '../firebase/FirestoreClient.js';
 import { ValidationError } from '../../domain/errors.js';
 
+// Tipo para operadores Where do Firestore
+type WhereFilterOp = '<' | '<=' | '==' | '!=' | '>=' | '>' | 'array-contains' | 'in' | 'array-contains-any' | 'not-in';
+
 export class FirebaseProfileRepository implements IProfileRepository {
   private readonly collection = 'medical_profiles';
 
@@ -140,7 +143,7 @@ export class FirebaseProfileRepository implements IProfileRepository {
     page: number;
     totalPages: number;
   }> {
-    const where = [];
+    const where: { field: string; operator: WhereFilterOp; value: unknown }[] = [];
     
     if (options.status) {
       where.push({ field: 'paymentStatus', operator: '==' as const, value: options.status });

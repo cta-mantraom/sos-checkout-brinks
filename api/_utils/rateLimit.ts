@@ -174,7 +174,7 @@ export function withRateLimit(
   config: RateLimitConfig = RATE_LIMIT_CONFIGS.default,
   identifierFn?: (req: VercelRequest) => string
 ) {
-  return function (handler: Function) {
+  return function (handler: (req: VercelRequest, res: VercelResponse) => Promise<void>) {
     return async function (req: VercelRequest, res: VercelResponse) {
       const identifier = identifierFn ? identifierFn(req) : getRateLimitIdentifier(req);
       const rateLimitResult = checkRateLimit(identifier, config);

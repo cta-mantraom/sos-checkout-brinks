@@ -11,7 +11,7 @@ export {
   type MercadoPagoCredentials,
   type PaymentConfig,
   type PaymentEnv,
-} from './payment.schema';
+} from './payment.schema.js';
 
 // Firebase schemas
 export {
@@ -21,7 +21,7 @@ export {
   type FirebaseCredentials,
   type FirebaseConfig,
   type FirebaseEnv,
-} from './firebase.schema';
+} from './firebase.schema.js';
 
 // App schemas
 export {
@@ -29,4 +29,4 @@ export {
   AppEnvSchema,
   type AppConfig,
   type AppEnv,
-} from './app.schema';
+} from './app.schema.js';

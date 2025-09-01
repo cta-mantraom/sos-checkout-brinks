@@ -214,9 +214,9 @@ export class ProcessPaymentUseCase {
     valid: boolean;
     errors: string[];
     requirements?: {
-      requiresToken: boolean;
       allowsInstallments: boolean;
       maxInstallments: number;
+      description: string;
     };
   }> {
     try {
@@ -228,9 +228,9 @@ export class ProcessPaymentUseCase {
         valid: true,
         errors: [],
         requirements: {
-          requiresToken: requirements.requiresToken,
           allowsInstallments: requirements.allowsInstallments,
-          maxInstallments: requirements.maxInstallments
+          maxInstallments: requirements.maxInstallments,
+          description: requirements.description
         }
       };
     } catch (error) {

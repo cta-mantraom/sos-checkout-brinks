@@ -232,9 +232,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Incluir informações de QR Code se solicitado
     if (includeQR && format !== 'basic') {
       try {
-        const qrCodeGenerator = require('./_utils/qrGenerator').createQRCodeGenerator();
-        const { QRCodeService } = require('../lib/domain/services/QRCodeService');
-        const qrCodeService = new QRCodeService(
+        const qrGeneratorModule = await import('./_utils/qrGenerator.js');
+        const qrCodeGenerator = qrGeneratorModule.createQRCodeGenerator();
+        const qrServiceModule = await import('../lib/domain/services/QRCodeService.js');
+        const qrCodeService = new qrServiceModule.QRCodeService(
           services.profileRepository,
           qrCodeGenerator
         );

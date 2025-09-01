@@ -1,5 +1,4 @@
 import { ConfigSingleton, ConfigMask } from '../utils';
-import { EnvValidator } from '../validators';
 import {
   FirebaseConfigSchema,
   FirebaseEnvSchema,
@@ -14,7 +13,7 @@ import {
 export class FirebaseConfigService extends ConfigSingleton<FirebaseConfigType> {
   private static readonly CONFIG_KEY = 'firebase';
 
-  private constructor() {
+  public constructor() {
     super(FirebaseConfigService.CONFIG_KEY);
   }
 
@@ -22,7 +21,10 @@ export class FirebaseConfigService extends ConfigSingleton<FirebaseConfigType> {
    * Obtém instância singleton
    */
   public static getInstance(): FirebaseConfigService {
-    return super.getInstance(FirebaseConfigService, FirebaseConfigService.CONFIG_KEY);
+    return ConfigSingleton.getOrCreateInstance(
+      FirebaseConfigService.CONFIG_KEY,
+      () => new FirebaseConfigService()
+    );
   }
 
   /**
@@ -34,7 +36,7 @@ export class FirebaseConfigService extends ConfigSingleton<FirebaseConfigType> {
       const envData = this.loadEnvironmentData();
       
       // 2. Construir configuração completa
-      const config: FirebaseConfigType = {
+      const config = {
         credentials: {
           projectId: envData.FIREBASE_PROJECT_ID,
           clientEmail: envData.FIREBASE_CLIENT_EMAIL,
@@ -59,12 +61,8 @@ export class FirebaseConfigService extends ConfigSingleton<FirebaseConfigType> {
         },
       };
 
-      // 3. Validar configuração final
-      const validatedConfig = EnvValidator.validate(
-        FirebaseConfigSchema,
-        config,
-        'FirebaseConfig'
-      );
+      // 3. Validar configuração final com parse direto para inferir tipos corretos
+      const validatedConfig = FirebaseConfigSchema.parse(config);
 
       // 4. Log com mascaramento
       this.logConfigLoaded(validatedConfig);
@@ -86,11 +84,8 @@ export class FirebaseConfigService extends ConfigSingleton<FirebaseConfigType> {
    */
   private loadEnvironmentData(): FirebaseEnv {
     // FIREBASE_PROJECT_ID é obrigatório
-    const requiredVars = ['FIREBASE_PROJECT_ID'];
-    
-    const missingVars = EnvValidator.validateRequiredEnvVars(requiredVars);
-    if (missingVars.length > 0) {
-      throw new Error(`Variáveis de ambiente obrigatórias ausentes: ${missingVars.join(', ')}`);
+    if (!process.env.FIREBASE_PROJECT_ID) {
+      throw new Error('Variável de ambiente obrigatória ausente: FIREBASE_PROJECT_ID');
     }
 
     // Criar objeto de environment data
@@ -101,12 +96,8 @@ export class FirebaseConfigService extends ConfigSingleton<FirebaseConfigType> {
       FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET,
     };
 
-    // Validar com schema
-    return EnvValidator.validate(
-      FirebaseEnvSchema,
-      envData,
-      'FirebaseEnv'
-    );
+    // Validar com schema (defaults serão aplicados automaticamente)
+    return FirebaseEnvSchema.parse(envData);
   }
 
   /**

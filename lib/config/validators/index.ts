@@ -3,4 +3,4 @@
  * Isolamento total - apenas exports, sem lógica
  */
 
-export { EnvValidator } from './env.validator';
+export { EnvValidator } from './env.validator.js';

@@ -1,5 +1,4 @@
 import { ConfigSingleton, ConfigMask } from '../utils';
-import { EnvValidator } from '../validators';
 import {
   AppConfigSchema,
   AppEnvSchema,
@@ -14,7 +13,7 @@ import {
 export class AppConfigService extends ConfigSingleton<AppConfig> {
   private static readonly CONFIG_KEY = 'app';
 
-  private constructor() {
+  public constructor() {
     super(AppConfigService.CONFIG_KEY);
   }
 
@@ -22,7 +21,10 @@ export class AppConfigService extends ConfigSingleton<AppConfig> {
    * Obtém instância singleton
    */
   public static getInstance(): AppConfigService {
-    return super.getInstance(AppConfigService, AppConfigService.CONFIG_KEY);
+    return ConfigSingleton.getOrCreateInstance(
+      AppConfigService.CONFIG_KEY,
+      () => new AppConfigService()
+    );
   }
 
   /**
@@ -33,13 +35,13 @@ export class AppConfigService extends ConfigSingleton<AppConfig> {
       // 1. Validar variáveis de ambiente primeiro
       const envData = this.loadEnvironmentData();
       
-      // 2. Construir configuração completa
-      const config: AppConfig = {
+      // 2. Construir configuração usando dados parciais (defaults do schema serão aplicados)
+      const config = {
         environment: envData.NODE_ENV,
-        version: envData.npm_package_version || '1.0.0',
+        version: envData.npm_package_version,
         urls: {
-          frontend: envData.FRONTEND_URL || 'http://localhost:5173',
-          api: envData.API_URL || 'http://localhost:3000',
+          frontend: envData.FRONTEND_URL,
+          api: envData.API_URL,
           webhook: envData.WEBHOOK_URL,
         },
         features: {
@@ -52,22 +54,16 @@ export class AppConfigService extends ConfigSingleton<AppConfig> {
           level: this.getLogLevel(envData.NODE_ENV),
           enableConsole: true,
           enableFile: envData.NODE_ENV === 'production',
-          maxFileSize: 10485760, // 10MB
         },
         security: {
           rateLimitWindow: 900000, // 15 minutos
           rateLimitMax: envData.NODE_ENV === 'development' ? 1000 : 100,
           corsOrigins: this.getCorsOrigins(envData),
-          trustedProxies: [],
         },
       };
 
-      // 3. Validar configuração final
-      const validatedConfig = EnvValidator.validate(
-        AppConfigSchema,
-        config,
-        'AppConfig'
-      );
+      // 3. Validar configuração final (defaults serão aplicados pelo schema)
+      const validatedConfig = AppConfigSchema.parse(config);
 
       // 4. Log com mascaramento
       this.logConfigLoaded(validatedConfig);
@@ -88,22 +84,18 @@ export class AppConfigService extends ConfigSingleton<AppConfig> {
    * Carrega e valida dados do ambiente
    */
   private loadEnvironmentData(): AppEnv {
-    // Criar objeto de environment data com defaults
+    // Criar objeto de environment data (schema aplicará defaults)
     const envData = {
-      NODE_ENV: (process.env.NODE_ENV as 'development' | 'production' | 'test' | 'staging') || 'development',
-      npm_package_version: process.env.npm_package_version || '1.0.0',
-      PORT: process.env.PORT || '3000',
+      NODE_ENV: process.env.NODE_ENV as 'development' | 'production' | 'test' | 'staging' | undefined,
+      npm_package_version: process.env.npm_package_version,
+      PORT: process.env.PORT,
       FRONTEND_URL: process.env.FRONTEND_URL,
       API_URL: process.env.API_URL,
       WEBHOOK_URL: process.env.WEBHOOK_URL,
     };
 
-    // Validar com schema (permitindo campos opcionais)
-    return EnvValidator.validate(
-      AppEnvSchema,
-      envData,
-      'AppEnv'
-    );
+    // Validar com schema (defaults serão aplicados automaticamente)
+    return AppEnvSchema.parse(envData);
   }
 
   /**

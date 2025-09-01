@@ -65,10 +65,26 @@ export class EnvValidator {
       if (error instanceof z.ZodError) {
         // Se falha, tenta validar apenas campos que têm valor
         const filteredData = this.filterValidFields(data, error);
-        const partialResult = schema.partial().parse(filteredData);
         
-        console.warn(`[${context}] Partial validation applied due to missing optional fields`);
-        return partialResult;
+        try {
+          // Type-safe check for partial method
+          const schemaWithPartial = schema as unknown as { partial?: () => z.ZodSchema<Partial<T>> };
+          
+          if (schemaWithPartial.partial && typeof schemaWithPartial.partial === 'function') {
+            const partialSchema = schemaWithPartial.partial();
+            const partialResult = partialSchema.parse(filteredData);
+            console.warn(`[${context}] Partial validation applied due to missing optional fields`);
+            return partialResult;
+          } else {
+            // If no partial method, use the original schema with filtered data
+            const result = schema.parse(filteredData);
+            console.warn(`[${context}] Original schema validation applied with filtered data`);
+            return result;
+          }
+        } catch (partialError) {
+          console.error(`[${context}] Even partial validation failed`);
+          throw partialError;
+        }
       }
       throw error;
     }
@@ -149,4 +165,43 @@ export class EnvValidator {
 
     return this.validate(schema, transformedData, context);
   }
+
+  /**
+   * Valida uma única variável de ambiente
+   */
+  static validateEnvVar(name: string, required: boolean = false): string | undefined {
+    const value = process.env[name];
+    
+    if (required && (!value || value.trim() === '')) {
+      throw new Error(`Variável de ambiente obrigatória ausente: ${name}`);
+    }
+    
+    return value;
+  }
+
+  /**
+   * Obtém uma variável de ambiente com fallback
+   */
+  static getEnvVar(name: string, defaultValue?: string): string | undefined {
+    return process.env[name] || defaultValue;
+  }
+
+  /**
+   * Obtém uma variável de ambiente obrigatória
+   */
+  static getRequiredEnvVar(name: string): string {
+    const value = process.env[name];
+    
+    if (!value || value.trim() === '') {
+      throw new Error(`Variável de ambiente obrigatória ausente: ${name}`);
+    }
+    
+    return value;
+  }
 }
+
+// Exportar também como funções standalone para compatibilidade
+export const validateEnvVar = EnvValidator.validateEnvVar;
+export const validateRequiredEnvVars = EnvValidator.validateRequiredEnvVars;
+export const getEnvVar = EnvValidator.getEnvVar;
+export const getRequiredEnvVar = EnvValidator.getRequiredEnvVar;

@@ -70,10 +70,9 @@ export const AppEnvSchema = z.object({
     .default('1.0.0'),
     
   PORT: z
-    .string()
-    .regex(/^\d+$/, 'Port deve ser um número')
-    .transform((val) => parseInt(val, 10))
-    .default('3000'),
+    .union([z.string(), z.number()])
+    .transform((val) => typeof val === 'string' ? parseInt(val, 10) : val)
+    .default(3000),
     
   FRONTEND_URL: z
     .string()
@@ -92,5 +91,6 @@ export const AppEnvSchema = z.object({
 });
 
 // Types exportados derivados dos schemas
-export type AppConfig = z.infer<typeof AppConfigSchema>;
-export type AppEnv = z.infer<typeof AppEnvSchema>;
+// Usando z.output para garantir que defaults sejam aplicados corretamente
+export type AppConfig = z.output<typeof AppConfigSchema>;
+export type AppEnv = z.output<typeof AppEnvSchema>;

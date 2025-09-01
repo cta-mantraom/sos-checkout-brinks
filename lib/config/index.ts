@@ -9,45 +9,45 @@
  */
 
 // Schemas - para validação manual se necessário
-export * from './schemas/index';
+export * from './schemas/index.js';
 
 // Contexts - configurações por domínio
-export * from './contexts/index';
+export * from './contexts/index.js';
 
 // Validators - para validação customizada
-export * from './validators/index';
+export * from './validators/index.js';
 
 // Types - para tipagem
-export * from './types/index';
+export * from './types/index.js';
 
 // Utils - para implementação de configs customizadas
-export * from './utils/index';
+export * from './utils/index.js';
 
 // ============================================================================
 // BACKWARD COMPATIBILITY - Para facilitar migração gradual
 // ============================================================================
 
 // Aliases para manter compatibilidade com código existente
-export { getPaymentConfig as paymentConfig } from './contexts';
-export { getFirebaseConfig as firebaseConfig } from './contexts';
-export { getAppConfig as appConfig } from './contexts';
+export { getPaymentConfig as paymentConfig } from './contexts/index.js';
+export { getFirebaseConfig as firebaseConfig } from './contexts/index.js';
+export { getAppConfig as appConfig } from './contexts/index.js';
 
 // Função de conveniência para inicialização completa
-export const initializeAllConfigs = () => {
-  const { getPaymentConfig } = require('./contexts/payment.config');
-  const { getFirebaseConfig } = require('./contexts/firebase.config');
-  const { getAppConfig } = require('./contexts/app.config');
+export const initializeAllConfigs = async () => {
+  const paymentModule = await import('./contexts/payment.config.js');
+  const firebaseModule = await import('./contexts/firebase.config.js');
+  const appModule = await import('./contexts/app.config.js');
 
   // Lazy loading - só carrega quando chamado
   return {
-    payment: () => getPaymentConfig(),
-    firebase: () => getFirebaseConfig(),
-    app: () => getAppConfig(),
+    payment: () => paymentModule.getPaymentConfig(),
+    firebase: () => firebaseModule.getFirebaseConfig(),
+    app: () => appModule.getAppConfig(),
   };
 };
 
 // Função para limpar todos os caches (útil para testes)
-export const clearAllConfigCaches = () => {
-  const { ConfigSingleton } = require('./utils');
-  ConfigSingleton.clearAllCaches();
+export const clearAllConfigCaches = async () => {
+  const utilsModule = await import('./utils/index.js');
+  utilsModule.ConfigSingleton.clearAllCaches();
 };

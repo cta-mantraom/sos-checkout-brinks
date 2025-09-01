@@ -107,11 +107,11 @@ export type MedicalFieldType =
   | 'number';
 
 // Component prop helpers
-export type PropsWithClassName<P = {}> = P & {
+export type PropsWithClassName<P = Record<string, unknown>> = P & {
   className?: string;
 };
 
-export type PropsWithChildren<P = {}> = P & {
+export type PropsWithChildren<P = Record<string, unknown>> = P & {
   children?: React.ReactNode;
 };
 
