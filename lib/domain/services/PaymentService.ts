@@ -28,14 +28,8 @@ export interface MercadoPagoPaymentDetails {
 }
 
 export interface IMercadoPagoClient {
-  createPayment(payment: Payment, payerEmail?: string, payerCpf?: string, metadata?: Record<string, string>, token?: string, deviceId?: string): Promise<{
-    id: string;
-    status: string;
-    status_detail: string;
-    pixQrCode?: string;
-    pixQrCodeBase64?: string;
-    boletoUrl?: string;
-  }>;
+  // ❌ REMOVIDO: createPayment() - Payment Brick processa pagamentos
+  // Backend apenas valida pagamentos já criados
   
   validateWebhook(payload: unknown, headers: Record<string, string>): Promise<boolean>;
   getPaymentById(id: string): Promise<MercadoPagoPaymentDetails>;
@@ -47,7 +41,8 @@ export interface PayerInfo {
 }
 
 export interface IPaymentService {
-  processPayment(payment: Payment, payerInfo?: PayerInfo, metadata?: Record<string, string>, token?: string, deviceId?: string): Promise<PaymentResult>;
+  // ❌ REMOVIDO: processPayment() - modo direto não precisa processar pagamentos
+  validatePayment(mercadoPagoPaymentId: string): Promise<PaymentResult>;
   validateWebhook(payload: unknown, headers: Record<string, string>): Promise<boolean>;
   updatePaymentStatus(id: string, status: PaymentStatus): Promise<void>;
   getPaymentById(id: string): Promise<Payment | null>;
@@ -61,89 +56,53 @@ export class PaymentService implements IPaymentService {
     private readonly mercadoPagoClient: IMercadoPagoClient
   ) {}
 
-  async processPayment(payment: Payment, payerInfo?: PayerInfo, metadata?: Record<string, string>, token?: string, deviceId?: string): Promise<PaymentResult> {
+  // ❌ REMOVIDO: processPayment() - modo tokenização obsoleto
+  // ✅ MODO DIRETO: Payment Brick processa pagamentos diretamente
+  // Backend APENAS valida pagamentos via validatePayment()
+  async processPayment(): Promise<PaymentResult> {
+    throw new Error('processPayment() foi removido. Use Payment Brick em modo direto + validatePayment()');
+  }
+
+  async validatePayment(
+    mercadoPagoPaymentId: string
+  ): Promise<PaymentResult> {
     try {
-      // Validações de domínio
-      if (!payment.canBeProcessed()) {
-        throw PaymentError.processingFailed(
-          payment.getId(), 
-          'Pagamento não pode ser processado'
-        );
-      }
-
-      // IMPORTANTE: NÃO salvar pagamento no banco ainda!
-      // Dados só serão salvos quando recebermos webhook de pagamento aprovado
-      // Verificar se pagamento já existe (para evitar duplicação)
-      const existingPayment = await this.paymentRepository.findById(payment.getId());
-      if (existingPayment && !existingPayment.isPending()) {
-        throw PaymentError.alreadyProcessed(payment.getId());
-      }
-
-      // Processar com MercadoPago (incluindo metadata se fornecido)
-      const mpResult = await this.mercadoPagoClient.createPayment(
-        payment, 
-        payerInfo?.email,
-        payerInfo?.cpf,
-        metadata,
-        token, // ✅ Token para cartões
-        deviceId // ✅ Device ID CRÍTICO para evitar diff_param_bins
-      );
+      // Buscar pagamento no MercadoPago (apenas consulta)
+      const mpPayment = await this.mercadoPagoClient.getPaymentById(mercadoPagoPaymentId);
       
-      // Log crítico para debug de diff_param_bins
-      console.log('[PaymentService] 🔍 Pagamento processado no MercadoPago:', {
-        paymentId: payment.getId(),
-        mpId: mpResult.id,
-        status: mpResult.status,
-        paymentMethod: payment.getPaymentMethod(),
-        hasDeviceId: !!deviceId,
-        deviceIdPreview: deviceId ? deviceId.substring(0, 8) + '...' : 'N/A'
+      if (!mpPayment) {
+        throw new Error(`Pagamento não encontrado no MercadoPago: ${mercadoPagoPaymentId}`);
+      }
+
+      console.log('[PaymentService] 🔍 Pagamento validado no MercadoPago:', {
+        mpId: mpPayment.id,
+        status: mpPayment.status,
+        status_detail: mpPayment.status_detail
       });
 
-      // Atualizar dados do pagamento
-      payment.setMercadoPagoData(mpResult.id, {
-        qrCode: mpResult.pixQrCode || '',
-        qrCodeBase64: mpResult.pixQrCodeBase64 || ''
-      });
-
-      if (mpResult.boletoUrl) {
-        payment.setBoletoUrl(mpResult.boletoUrl);
-      }
-
-      // Atualizar status baseado na resposta do MP
-      const newStatus = this.mapMercadoPagoStatus(mpResult.status);
+      // Mapear status
+      const status = this.mapMercadoPagoStatus(mpPayment.status);
       
-      // Só atualizar se o status for diferente do atual
-      if (payment.getStatus().getValue() !== newStatus.getValue()) {
-        payment.updateStatus(newStatus, mpResult.status_detail);
-      }
-
-      // IMPORTANTE: NÃO salvar no repositório ainda!
-      // Dados só serão salvos quando recebermos webhook de pagamento aprovado
-
+      // Para PIX, extrair QR Code se disponível
+      const pixQrCode = mpPayment.point_of_interaction?.transaction_data?.qr_code;
+      const pixQrCodeBase64 = mpPayment.point_of_interaction?.transaction_data?.qr_code_base64;
+      const boletoUrl = mpPayment.point_of_interaction?.transaction_data?.ticket_url;
+      
       // Para PIX, pending com QR Code é considerado sucesso
-      const isPixPendingWithQrCode = payment.getPaymentMethod() === 'pix' && 
-                                      mpResult.status === 'pending' && 
-                                      !!mpResult.pixQrCode;
+      const isPixPendingWithQrCode = mpPayment.status === 'pending' && !!pixQrCode;
       
       return {
-        success: newStatus.isSuccessful() || isPixPendingWithQrCode,
-        paymentId: payment.getId(),
-        status: mpResult.status,
-        detail: mpResult.status_detail,
-        pixQrCode: mpResult.pixQrCode,
-        pixQrCodeBase64: mpResult.pixQrCodeBase64,
-        boletoUrl: mpResult.boletoUrl
+        success: status.isSuccessful() || isPixPendingWithQrCode,
+        paymentId: mpPayment.id,
+        status: mpPayment.status,
+        detail: mpPayment.status_detail,
+        pixQrCode,
+        pixQrCodeBase64,
+        boletoUrl
       };
 
     } catch (error) {
-      if (error instanceof PaymentError) {
-        throw error;
-      }
-      
-      throw PaymentError.processingFailed(
-        payment.getId(),
-        error instanceof Error ? error.message : 'Erro desconhecido'
-      );
+      throw new Error(`Erro ao validar pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
 

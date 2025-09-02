@@ -1,2 +1,3 @@
 export { CreateProfileUseCase, type CreateProfileResult } from './CreateProfileUseCase.js';
-export { ProcessPaymentUseCase, type ProcessPaymentUseCaseResult } from './ProcessPaymentUseCase.js';
+// ❌ REMOVIDO: ProcessPaymentUseCase - modo tokenização obsoleto
+export { ValidatePaymentUseCase, type ValidatePaymentUseCaseResult } from './ValidatePaymentUseCase.js';

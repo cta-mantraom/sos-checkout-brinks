@@ -30,7 +30,8 @@ export const API_ENDPOINTS = {
     DELETE: '/api/delete-profile',
   },
   PAYMENT: {
-    PROCESS: '/api/process-payment',
+    // ❌ REMOVIDO: PROCESS: '/api/process-payment' - modo tokenização obsoleto
+    VALIDATE: '/api/validate-payment', // ✅ MODO DIRETO: Apenas validação
     STATUS: '/api/payment-status',
     WEBHOOK: '/api/mercadopago-webhook',
   },
@@ -118,12 +119,12 @@ export const RELATIONSHIP_TYPES = [
   'Outro'
 ] as const;
 
-// Payment method types
+// Payment method types (MODO DIRETO - apenas cartões e PIX)
 export const PAYMENT_METHODS = {
   PIX: 'pix',
   CREDIT_CARD: 'credit_card',
   DEBIT_CARD: 'debit_card',
-  BOLETO: 'boleto',
+  // ❌ REMOVIDO: BOLETO - não suportado no modo direto
 } as const;
 
 // Payment status types

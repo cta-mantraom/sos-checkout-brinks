@@ -1,5 +1,6 @@
 import { CreateProfileUseCase } from '../../lib/application/use-cases/CreateProfileUseCase.js';
-import { ProcessPaymentUseCase } from '../../lib/application/use-cases/ProcessPaymentUseCase.js';
+// ❌ REMOVIDO: ProcessPaymentUseCase.ts - modo tokenização obsoleto
+import { ValidatePaymentUseCase } from '../../lib/application/use-cases/ValidatePaymentUseCase.js';
 import { PaymentService } from '../../lib/domain/services/PaymentService.js';
 import { ProfileService } from '../../lib/domain/services/ProfileService.js';
 import { QRCodeService } from '../../lib/domain/services/QRCodeService.js';
@@ -29,7 +30,8 @@ export interface ServiceContainer {
   
   // Use Cases
   createProfileUseCase: CreateProfileUseCase;
-  processPaymentUseCase: ProcessPaymentUseCase;
+  // ❌ REMOVIDO: processPaymentUseCase - modo tokenização obsoleto
+  validatePaymentUseCase: ValidatePaymentUseCase;
   
   // Infrastructure
   firestoreClient: FirestoreClient;
@@ -90,8 +92,10 @@ export function initializeServices(): ServiceContainer {
     
     // Casos de uso
     const createProfileUseCase = new CreateProfileUseCase(profileService);
-    const processPaymentUseCase = new ProcessPaymentUseCase(
-      paymentService,
+    // ❌ REMOVIDO: processPaymentUseCase - modo direto não precisa processar pagamentos
+    const validatePaymentUseCase = new ValidatePaymentUseCase(
+      mercadoPagoClient,
+      paymentRepository,
       profileService,
       qrCodeService
     );
@@ -111,7 +115,8 @@ export function initializeServices(): ServiceContainer {
       
       // Use Cases
       createProfileUseCase,
-      processPaymentUseCase,
+      // ❌ REMOVIDO: processPaymentUseCase - modo tokenização obsoleto
+      validatePaymentUseCase,
       
       // Infrastructure
       firestoreClient,

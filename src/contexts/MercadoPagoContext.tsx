@@ -301,11 +301,16 @@ export function useMercadoPagoBrick() {
           await new Promise(resolve => setTimeout(resolve, 50));
         }
 
-        console.log(`[useMercadoPagoBrick] 🚀 Criando Payment Brick para ${containerId} com Device ID:`, finalDeviceId?.substring(0, 8) + '...');
+        console.log(`[useMercadoPagoBrick] 🚀 Criando Payment Brick MODO DIRETO para ${containerId} com Device ID:`, finalDeviceId?.substring(0, 8) + '...');
         
         const bricksBuilder = mp.bricks();
+        // ✅ CONFIGURAÇÃO CRÍTICA: Modo direto processa pagamentos automaticamente
         const brick = await bricksBuilder.create('payment', containerId, {
-          initialization: options.initialization,
+          initialization: {
+            ...options.initialization,
+            // ✅ MODO DIRETO: Configuração que processa pagamento automaticamente
+            mode: 'direct' // Esta configuração faz o Brick processar pagamentos diretamente
+          },
           customization: options.customization || {
             paymentMethods: {
               creditCard: 'all',

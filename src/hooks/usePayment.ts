@@ -33,21 +33,11 @@ interface PaymentResponse {
 
 // MercadoPago interfaces estão definidas em src/types/global.d.ts
 
-async function processPayment(data: PaymentData): Promise<PaymentResponse> {
-  const response = await fetch('/api/process-payment', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Erro ao processar pagamento');
-  }
-
-  return response.json();
+// ❌ REMOVIDO: processPayment() - modo tokenização obsoleto
+// ✅ MODO DIRETO: Payment Brick processa pagamentos automaticamente
+// Use apenas validatePayment() após o Brick processar
+async function processPayment(): Promise<PaymentResponse> {
+  throw new Error('processPayment() foi removido. Use Payment Brick em modo direto.');
 }
 
 async function getPaymentStatus(paymentId: string): Promise<PaymentResponse> {

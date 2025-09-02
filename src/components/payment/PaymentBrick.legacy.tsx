@@ -10,19 +10,42 @@ import { SUBSCRIPTION_PRICES } from '@/lib/constants/prices';
 import { CreditCard, Smartphone, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// ✅ MODO DIRETO: Interface para dados do pagamento JÁ PROCESSADO pelo Payment Brick
-interface DirectModePaymentData {
-  payment?: {
+// Interface para dados brutos do MercadoPago Brick
+interface MercadoPagoBrickData {
+  payment_method_id?: string;
+  paymentMethodId?: string;
+  payment_method?: string;
+  selectedPaymentMethod?: {
     id?: string;
-    status?: 'approved' | 'pending' | 'rejected';
-    status_detail?: string;
-    transaction_amount?: number;
+    type?: string;
+  };
+  installments?: number;
+  token?: string; // Token do Payment Brick para cartões
+  payer?: {
+    email?: string;
+    identification?: {
+      type: string;
+      number: string;
+    };
+  };
+  formData?: {
     payment_method_id?: string;
-    point_of_interaction?: {
-      transaction_data?: {
-        qr_code?: string;
-        qr_code_base64?: string;
+    payment_method?: string;
+    installments?: number;
+    token?: string; // Token pode vir dentro de formData também
+    payer?: {
+      email?: string;
+      identification?: {
+        type: string;
+        number: string;
       };
+    };
+  };
+  // Propriedades adicionais quando o pagamento é processado
+  additionalData?: {
+    payment?: {
+      id?: string;
+      status?: string;
     };
   };
 }
@@ -43,7 +66,8 @@ interface PaymentResult {
 
 interface PaymentBrickProps {
   subscriptionType: SubscriptionType;
-  profileData?: {
+  profileId?: string;  // Opcional agora
+  profileData?: {  // Dados do perfil para novo fluxo
     fullName: string;
     cpf: string;
     phone: string;
@@ -75,6 +99,7 @@ interface PaymentBrickProps {
 
 export function PaymentBrick({
   subscriptionType,
+  profileId,
   profileData,
   amount,
   onPaymentSuccess,
@@ -108,12 +133,6 @@ export function PaymentBrick({
       return;
     }
 
-    // Validar dados obrigatórios para modo direto
-    if (!profileData) {
-      setError('Dados do perfil são obrigatórios para pagamento');
-      return;
-    }
-
     const loadBrick = async () => {
       try {
         setIsLoading(true);
@@ -135,25 +154,18 @@ export function PaymentBrick({
           throw new Error('Container do Payment Brick não foi encontrado');
         }
 
-        // ✅ CONFIGURAÇÃO PARA MODO DIRETO
         const brickOptions = {
           initialization: {
             amount: amount,
-            // ✅ MODO DIRETO: Pré-preenchimento de dados para melhor conversão
-            payer: {
-              email: profileData.email,
-              identification: {
-                type: 'CPF',
-                number: profileData.cpf.replace(/\D/g, '')
-              }
-            }
+            preferenceId: null, // será gerado pelo backend
           },
           customization: {
             paymentMethods: {
               creditCard: 'all',
               debitCard: 'all',
-              bankTransfer: 'all'  // PIX habilitado
-              // ✅ APENAS cartões e PIX - boleto/wallet removidos
+              bankTransfer: 'all',  // PIX habilitado
+              // NUNCA usar ticket: 'none' ou mercadoPago: 'none' - causa erro 422
+              // Simplesmente NÃO incluir esses campos para desabilitá-los
             },
             visual: {
               style: {
@@ -167,18 +179,19 @@ export function PaymentBrick({
                   fontSizeLarge: '18px',
                   fontWeightNormal: '400',
                   fontWeightSemiBold: '600',
-                  formPadding: '16px'
+                  formPadding: '16px',
+                  // REMOVIDAS propriedades inválidas que causavam erro 422
                 },
               },
             },
           },
           callbacks: {
             onReady: () => {
-              console.log('✅ Payment Brick (MODO DIRETO) está pronto');
+              console.log('Payment Brick está pronto');
               setIsLoading(false);
             },
             onSubmit: async (data: unknown) => {
-              console.log('[PaymentBrick] 📦 MODO DIRETO: Dados recebidos do Brick:', JSON.stringify(data, null, 2));
+              console.log('Dados brutos do MercadoPago Brick:', JSON.stringify(data, null, 2));
               
               // ✅ VALIDAÇÃO CRÍTICA: Garantir Device ID SEMPRE
               console.log('[PaymentBrick] 🔍 Validando Device ID para pagamento...');
@@ -214,112 +227,212 @@ export function PaymentBrick({
                 source: finalDeviceId === deviceId ? 'context' : 'forced_detection'
               });
               
-              // ✅ MODO DIRETO: Extrair payment_id do pagamento JÁ PROCESSADO
-              const directModeData = data as DirectModePaymentData;
-              const paymentId = directModeData.payment?.id;
-              
-              if (!paymentId) {
-                console.error('[PaymentBrick] ❌ ERRO: Modo direto não retornou payment_id');
-                console.error('[PaymentBrick] Configure o Payment Brick para processar pagamentos diretamente');
-                onPaymentError(new Error('Pagamento não foi processado. Configure o Payment Brick em modo direto.'));
-                return;
-              }
-              
-              console.log('[PaymentBrick] ✅ MODO DIRETO: Pagamento processado pelo Brick, ID:', paymentId);
+              // Validar e tipar dados do Brick
+              const brickData = data as MercadoPagoBrickData;
               
               try {
-                // ✅ VALIDAR PAGAMENTO NO BACKEND
-                const response = await fetch('/api/validate-payment', {
+                // IMPORTANTE: O Payment Brick do MercadoPago deve processar o pagamento
+                // Vamos apenas enviar os dados para o backend processar corretamente
+                // Detectar o método de pagamento corretamente
+                let paymentMethodId = brickData.payment_method_id || 
+                                     brickData.paymentMethodId ||
+                                     brickData.payment_method ||
+                                     brickData.selectedPaymentMethod?.id ||
+                                     brickData.formData?.payment_method_id ||
+                                     brickData.formData?.payment_method;
+                
+                // PIX vem como 'pix'
+                const isPix = paymentMethodId === 'pix';
+                
+                // Mapeamento completo dos payment_method_id do MercadoPago
+                const creditCardMethods = [
+                  'visa', 'master', 'mastercard', 'amex', 'elo', 'hipercard', 
+                  'diners', 'tarshop', 'cencosud', 'cmr_falabella', 'argencard',
+                  'naranja', 'maestro', 'cabal', 'shopping'
+                ];
+                
+                const debitCardMethods = [
+                  'debvisa', 'debmaster', 'debelo', 'debcabal', 'debmae', 
+                  'debmastro', 'debnaranja', 'maestro_internacional'
+                ];
+                
+                // Mapear tipos de pagamento - APENAS PIX, CRÉDITO e DÉBITO
+                let paymentMethod: 'credit_card' | 'debit_card' | 'pix';
+                
+                if (isPix) {
+                  paymentMethod = 'pix';
+                  paymentMethodId = 'pix';
+                } else if (paymentMethodId && debitCardMethods.includes(paymentMethodId.toLowerCase())) {
+                  paymentMethod = 'debit_card';
+                } else if (paymentMethodId && creditCardMethods.includes(paymentMethodId.toLowerCase())) {
+                  paymentMethod = 'credit_card';
+                } else if (paymentMethodId && (paymentMethodId.includes('debit') || paymentMethodId.includes('debito'))) {
+                  // Fallback para métodos com 'debit' no nome
+                  paymentMethod = 'debit_card';
+                } else if (paymentMethodId && (paymentMethodId.includes('credit') || paymentMethodId.includes('credito'))) {
+                  // Fallback para métodos com 'credit' no nome
+                  paymentMethod = 'credit_card';
+                } else if (paymentMethodId) {
+                  // ✅ DEFAULT SEGURO: Se não identificado especificamente, assumir cartão de crédito
+                  // A maioria dos payment_method_id desconhecidos são cartões de crédito
+                  console.warn(`Método de pagamento não mapeado, assumindo crédito: ${paymentMethodId}`);
+                  paymentMethod = 'credit_card';
+                } else {
+                  throw new Error('Método de pagamento não foi detectado pelo Payment Brick');
+                }
+                
+                console.log('Método de pagamento identificado:', { 
+                  paymentMethodId, 
+                  paymentMethod,
+                  isPix 
+                });
+                
+                // ✅ VALIDAÇÃO CRÍTICA: Para cartões, token é OBRIGATÓRIO
+                const isCardPayment = paymentMethod === 'credit_card' || paymentMethod === 'debit_card';
+                const token = brickData.token || brickData.formData?.token;
+                
+                if (isCardPayment && !token) {
+                  throw new Error('Token de pagamento não foi gerado pelo Payment Brick. Tente novamente.');
+                }
+                
+                console.log('Validações de pagamento:', {
+                  paymentMethod,
+                  isCardPayment,
+                  hasToken: !!token,
+                  tokenLength: token ? token.length : 0
+                });
+                
+                // Transformar dados do MercadoPago para formato esperado pelo backend
+                const transformedData = profileData ? {
+                  // NOVO FLUXO: Enviar dados do perfil
+                  amount,
+                  paymentMethodId: paymentMethodId || 'pix',
+                  paymentMethod: paymentMethod,
+                  installments: brickData.installments || brickData.formData?.installments || 1,
+                  token: token, // ✅ Token do Payment Brick para cartões
+                  deviceId: finalDeviceId, // ✅ Device ID GARANTIDO
+                  payer: {
+                    email: brickData.payer?.email || brickData.formData?.payer?.email || profileData.email,
+                    identification: {
+                      type: 'CPF',
+                      number: profileData.cpf // ✅ SEMPRE usar CPF do profileData, não do Brick
+                    }
+                  },
+                  profileData: {
+                    ...profileData,
+                    subscriptionPlan: subscriptionType
+                  }
+                } : {
+                  // FLUXO ANTIGO: Enviar profileId
+                  profileId,
+                  amount,
+                  paymentMethodId: paymentMethodId || 'pix',
+                  paymentMethod: paymentMethod,
+                  installments: brickData.installments || brickData.formData?.installments || 1,
+                  token: token, // ✅ Token do Payment Brick para cartões
+                  deviceId: finalDeviceId, // ✅ Device ID GARANTIDO
+                  payer: {
+                    email: brickData.payer?.email || brickData.formData?.payer?.email,
+                    identification: brickData.payer?.identification || brickData.formData?.payer?.identification
+                  }
+                };
+
+                // Payment Brick gerencia tokenização automaticamente
+                
+                console.log('Dados transformados para envio:', transformedData);
+
+                // ✅ Log de dados transformados (mascarado)
+                console.log('[PaymentBrick] 📦 Dados transformados para envio:', {
+                  ...transformedData,
+                  deviceId: transformedData.deviceId?.substring(0, 8) + '...', // Mascarar Device ID
+                  token: token ? token.substring(0, 8) + '...' : undefined, // Mascarar token
+                  paymentMethod: transformedData.paymentMethod,
+                  amount: transformedData.amount
+                });
+
+                // 🚨 NOTA: Payment Brick está em modo tokenização
+                // Ele não processa o pagamento diretamente, apenas gera o token
+                // Precisamos enviar os dados para o backend processar
+                
+                // Por enquanto, vamos usar o endpoint process-payment existente
+                // TODO: Migrar para Payment Brick em modo de pagamento direto
+                const response = await fetch('/api/process-payment', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'X-Device-Session-Id': finalDeviceId,
+                    'X-Device-Session-Id': finalDeviceId, // ✅ Header de segurança
                   },
-                  body: JSON.stringify({
-                    paymentId: paymentId,
-                    profileData: {
-                      ...profileData,
-                      subscriptionPlan: subscriptionType
-                    },
-                    amount: amount,
-                    subscriptionType: subscriptionType
-                  }),
+                  body: JSON.stringify(transformedData),
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (!response.ok) {
-                  throw new Error(result.message || 'Erro ao validar pagamento no backend');
+                  throw new Error(result.message || 'Erro ao validar pagamento');
                 }
+
+                console.log('Pagamento validado no backend:', result);
                 
-                console.log('[PaymentBrick] ✅ Pagamento validado no backend:', result);
+                // Verificar se é PIX
+                const isPixPayment = paymentMethod === 'pix';
                 
-                // ✅ PROCESSAR RESULTADO BASEADO NO STATUS
-                const paymentStatus = result.payment?.status || directModeData.payment?.status;
-                const isPix = result.payment?.payment_method_id === 'pix' || directModeData.payment?.payment_method_id === 'pix';
+                // Verificar status do pagamento
+                const paymentStatus = result.payment?.status || result.status;
+                const mercadoPagoId = result.payment?.id || result.data?.payment?.id || '';
                 
-                console.log('[PaymentBrick] 📊 Status do pagamento:', {
+                console.log('[PaymentBrick] Status do pagamento:', {
                   paymentStatus,
-                  isPix,
-                  paymentId,
-                  hasPixData: !!(result.payment?.point_of_interaction?.transaction_data || directModeData.payment?.point_of_interaction?.transaction_data)
+                  mercadoPagoId,
+                  isPixPayment,
+                  hasPixData: !!result.payment?.point_of_interaction
                 });
                 
                 switch (paymentStatus) {
                   case 'approved':
-                    console.log('[PaymentBrick] ✅ Pagamento aprovado');
-                    onPaymentSuccess({
-                      id: paymentId,
-                      status: 'approved',
-                      status_detail: result.payment?.status_detail,
-                      payment_method_id: result.payment?.payment_method_id,
-                      payment_type_id: isPix ? 'bank_transfer' : 'credit_card',
-                      transaction_amount: result.payment?.transaction_amount || amount,
-                      ...result
-                    });
+                    console.log('[PaymentBrick] Pagamento aprovado, chamando onPaymentSuccess');
+                    onPaymentSuccess(result);
                     break;
-                    
                   case 'pending':
-                    if (isPix && paymentId) {
-                      console.log('[PaymentBrick] 📱 PIX detectado - Mostrando Status Screen');
-                      setMercadoPagoPaymentId(paymentId);
+                    // Para PIX, mostrar Status Screen Brick em vez de redirecionar
+                    if (isPixPayment && mercadoPagoId) {
+                      console.log('[PaymentBrick] PIX detectado - Mostrando Status Screen');
+                      console.log('[PaymentBrick] ID do MercadoPago para Status Screen:', mercadoPagoId);
+                      console.log('[PaymentBrick] Tipo do ID:', typeof mercadoPagoId);
+                      setMercadoPagoPaymentId(mercadoPagoId);
                       setShowStatusScreen(true);
+                      // Esconder o Payment Brick
+                      console.log('[PaymentBrick] Desmontando Payment Brick');
                       unmountBrick(containerId);
+                      // IMPORTANTE: NÃO chamar onPaymentPending para PIX
+                      console.log('[PaymentBrick] StatusScreen deve ser renderizado agora');
                     } else {
-                      console.log('[PaymentBrick] ⏳ Pagamento pendente (não PIX)');
-                      const pendingResult = {
-                        id: paymentId,
-                        status: 'pending' as const,
-                        status_detail: result.payment?.status_detail,
-                        payment_method_id: result.payment?.payment_method_id,
-                        payment_type_id: 'credit_card',
-                        transaction_amount: result.payment?.transaction_amount || amount,
-                        ...result
-                      };
-                      onPaymentPending?.(pendingResult);
+                      console.log('[PaymentBrick] Não é PIX ou falta ID - chamando onPaymentPending');
+                      // Para outros métodos, chamar callback de pending
+                      if (result.payment?.point_of_interaction?.transaction_data) {
+                        result.pixData = {
+                          qrCode: result.payment.point_of_interaction.transaction_data.qr_code,
+                          qrCodeBase64: result.payment.point_of_interaction.transaction_data.qr_code_base64
+                        };
+                      }
+                      onPaymentPending?.(result);
                     }
                     break;
-                    
                   case 'rejected':
-                    console.log('[PaymentBrick] ❌ Pagamento rejeitado');
                     onPaymentError(new Error(result.payment?.status_detail || 'Pagamento rejeitado'));
                     break;
-                    
                   default:
-                    console.error('[PaymentBrick] ❓ Status desconhecido:', paymentStatus);
-                    onPaymentError(new Error('Status de pagamento desconhecido: ' + paymentStatus));
+                    onPaymentError(new Error('Status de pagamento desconhecido'));
                 }
 
                 return result;
-                
               } catch (error) {
-                console.error('[PaymentBrick] ❌ Erro na validação do pagamento:', error);
-                onPaymentError(error instanceof Error ? error : new Error('Erro desconhecido na validação'));
+                console.error('Erro no processamento do pagamento:', error);
+                onPaymentError(error instanceof Error ? error : new Error('Erro desconhecido'));
                 throw error;
               }
             },
             onError: (error: PaymentError) => {
-              console.error('[PaymentBrick] ❌ Erro no Payment Brick:', error);
+              console.error('Erro no Payment Brick:', error);
               setError(error.message || 'Erro no formulário de pagamento');
               onPaymentError(error);
             },
@@ -327,10 +440,9 @@ export function PaymentBrick({
         };
 
         await createBrick(containerId, brickOptions);
-        console.log('[PaymentBrick] ✅ Payment Brick (MODO DIRETO) criado com sucesso');
-        
+        console.log('[PaymentBrick] Brick criado com sucesso');
       } catch (err) {
-        console.error('[PaymentBrick] ❌ Erro ao carregar Payment Brick:', err);
+        console.error('Erro ao carregar Payment Brick:', err);
         setError(err instanceof Error ? err.message : 'Erro ao carregar formulário de pagamento');
         setIsLoading(false);
       }
@@ -339,13 +451,13 @@ export function PaymentBrick({
     // Carregar brick quando MercadoPago estiver pronto
     loadBrick();
 
-    // ✅ Cleanup
+    // ✅ Cleanup aprimorado
     return () => {
-      console.log('[PaymentBrick] 🧹 Limpando Payment Brick...');
+      console.log('[PaymentBrick] Limpando Payment Brick...');
       unmountBrick(containerId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, subscriptionType, profileData, amount, deviceId, onPaymentSuccess, onPaymentError, onPaymentPending]);
+  }, [isReady, subscriptionType, profileId, profileData, amount, deviceId, onPaymentSuccess, onPaymentError, onPaymentPending]);
 
   const subscriptionInfo = {
     basic: {
@@ -366,17 +478,17 @@ export function PaymentBrick({
 
   const currentSubscription = subscriptionInfo[subscriptionType];
 
-  // ✅ STATUS SCREEN para PIX
+  // Se está mostrando Status Screen para PIX
   if (showStatusScreen && mercadoPagoPaymentId) {
     return (
       <StatusScreenBrick
         paymentId={mercadoPagoPaymentId}
         onSuccess={(data) => {
-          console.log('✅ Pagamento PIX aprovado via Status Screen:', data);
+          console.log('Pagamento PIX aprovado:', data);
           onPaymentSuccess(data as PaymentResult);
         }}
         onError={(error) => {
-          console.error('❌ Erro no pagamento PIX:', error);
+          console.error('Erro no pagamento PIX:', error);
           setError(error.message);
           setShowStatusScreen(false);
           setMercadoPagoPaymentId(null);
@@ -387,7 +499,6 @@ export function PaymentBrick({
     );
   }
 
-  // ✅ EXIBIÇÃO DE ERRO
   if (error) {
     return (
       <Card className={className}>
@@ -446,7 +557,7 @@ export function PaymentBrick({
             <CardTitle>Dados de Pagamento</CardTitle>
           </div>
           <CardDescription>
-            Pagamento processado diretamente pelo MercadoPago (modo seguro)
+            Escolha a forma de pagamento e preencha os dados
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -456,7 +567,7 @@ export function PaymentBrick({
                 <div className="text-center space-y-4">
                   <LoadingSpinner size="lg" />
                   <p className="text-sm text-muted-foreground">
-                    Carregando formulário de pagamento seguro...
+                    Carregando formulário de pagamento...
                   </p>
                 </div>
               </div>
@@ -477,23 +588,23 @@ export function PaymentBrick({
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-2 text-sm text-muted-foreground">
-            <h4 className="font-medium text-foreground mb-3">🔒 Pagamento Ultra Seguro (Modo Direto)</h4>
+            <h4 className="font-medium text-foreground mb-3">Pagamento Seguro</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-start space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full mt-2 shrink-0"></div>
-                <span>Processamento direto pelo MercadoPago</span>
+                <span>Seus dados são protegidos com criptografia SSL</span>
               </div>
               <div className="flex items-start space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full mt-2 shrink-0"></div>
-                <span>Criptografia SSL de ponta a ponta</span>
+                <span>Processamento via MercadoPago, certificado PCI DSS</span>
               </div>
               <div className="flex items-start space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full mt-2 shrink-0"></div>
-                <span>Certificação PCI DSS Level 1</span>
+                <span>Não armazenamos dados de cartão de crédito</span>
               </div>
               <div className="flex items-start space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full mt-2 shrink-0"></div>
-                <span>Device fingerprinting ativo</span>
+                <span>Transações monitoradas 24/7</span>
               </div>
             </div>
           </div>
@@ -503,11 +614,11 @@ export function PaymentBrick({
       {/* Métodos de Pagamento Aceitos */}
       <Card>
         <CardContent className="pt-6">
-          <h4 className="font-medium mb-3">💳 Métodos de Pagamento</h4>
+          <h4 className="font-medium mb-3">Métodos de Pagamento Aceitos</h4>
           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">PIX Instantâneo</span>
-            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">Cartão de Crédito</span>
-            <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-medium">Cartão de Débito</span>
+            <span className="bg-gray-100 px-2 py-1 rounded">PIX</span>
+            <span className="bg-gray-100 px-2 py-1 rounded">Cartão de Crédito</span>
+            <span className="bg-gray-100 px-2 py-1 rounded">Cartão de Débito</span>
           </div>
         </CardContent>
       </Card>
