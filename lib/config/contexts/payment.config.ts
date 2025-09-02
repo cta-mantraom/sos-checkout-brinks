@@ -48,7 +48,7 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
         },
         prices: {
           basic: 5.0 as const,
-          premium: 5.0 as const,
+          premium: 10.0 as const,
         },
         paymentMethods: {
           creditCard: true,

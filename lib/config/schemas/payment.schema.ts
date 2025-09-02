@@ -48,7 +48,7 @@ export const PaymentConfigSchema = z.object({
 
   prices: z.object({
     basic: z.literal(5.0),
-    premium: z.literal(5.0),
+    premium: z.literal(10.0),
   }),
 
   deviceIdScript: z

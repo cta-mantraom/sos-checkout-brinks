@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { getMercadoPagoCredentials } from '../../lib/config';
 
 // Interfaces do MercadoPago
 interface MercadoPagoBrick {
@@ -76,10 +77,19 @@ export function MercadoPagoProvider({ children }: MercadoPagoProviderProps) {
 
         console.log('[MercadoPagoProvider] SDK disponível, inicializando...');
 
-        // Obter public key
-        const publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
-        if (!publicKey || publicKey === 'YOUR_MERCADOPAGO_PUBLIC_KEY_HERE') {
-          throw new Error('MercadoPago Public Key não configurada. Configure VITE_MERCADOPAGO_PUBLIC_KEY no arquivo .env');
+        // Obter public key usando configuração desacoplada
+        let publicKey: string;
+        try {
+          const credentials = getMercadoPagoCredentials();
+          publicKey = credentials.publicKey;
+          console.log('[MercadoPagoProvider] Usando configuração desacoplada - Environment:', credentials.environment);
+        } catch (configError) {
+          // Fallback para variáveis de ambiente diretas (desenvolvimento)
+          console.warn('[MercadoPagoProvider] Fallback para env diretas:', configError);
+          publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
+          if (!publicKey || publicKey === 'YOUR_MERCADOPAGO_PUBLIC_KEY_HERE') {
+            throw new Error('MercadoPago Public Key não configurada. Configure VITE_MERCADOPAGO_PUBLIC_KEY no arquivo .env ou as variáveis do servidor');
+          }
         }
 
         // Criar instância única do MercadoPago
@@ -222,16 +232,14 @@ export function useMercadoPagoBrick() {
           paymentMethods: {
             creditCard: 'all',
             debitCard: 'all',
-            bankTransfer: 'all',  // PIX
-            ticket: 'none',  // Desabilitar boleto
-            mercadoPago: 'none',  // Desabilitar Wallet
+            bankTransfer: 'all',  // PIX habilitado
+            // NUNCA incluir ticket ou mercadoPago - causam erro 422
           },
           visual: {
             style: {
               customVariables: {
                 formBackgroundColor: '#ffffff',
                 baseColor: '#3b82f6',
-                completeColor: '#10b981',
                 errorColor: '#ef4444',
                 fontSizeExtraSmall: '12px',
                 fontSizeSmall: '14px',
@@ -239,8 +247,8 @@ export function useMercadoPagoBrick() {
                 fontSizeLarge: '18px',
                 fontWeightNormal: '400',
                 fontWeightSemiBold: '600',
-                formPadding: '16px',
-                formBorderRadius: '8px',
+                formPadding: '16px'
+                // Removidas propriedades inválidas: completeColor, formBorderRadius
               }
             }
           }

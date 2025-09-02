@@ -148,17 +148,16 @@ export function PaymentBrick({
             paymentMethods: {
               creditCard: 'all',
               debitCard: 'all',
-              bankTransfer: 'all',  // PIX
-              ticket: 'none',  // Desabilitar boleto
-              mercadoPago: 'none',  // Desabilitar MercadoPago Wallet
+              bankTransfer: 'all',  // PIX habilitado
+              // NUNCA usar ticket: 'none' ou mercadoPago: 'none' - causa erro 422
+              // Simplesmente NÃO incluir esses campos para desabilitá-los
             },
             visual: {
               style: {
                 customVariables: {
                   formBackgroundColor: '#ffffff',
-                  baseColor: '#3b82f6',  // ✅ Cor principal válida
-                  completeColor: '#10b981',  // ✅ Cor de sucesso válida
-                  errorColor: '#ef4444',  // ✅ Cor de erro válida
+                  baseColor: '#3b82f6',
+                  errorColor: '#ef4444',
                   fontSizeExtraSmall: '12px',
                   fontSizeSmall: '14px',
                   fontSizeMedium: '16px',
@@ -166,11 +165,7 @@ export function PaymentBrick({
                   fontWeightNormal: '400',
                   fontWeightSemiBold: '600',
                   formPadding: '16px',
-                  formBorderRadius: '8px',
-                  // ❌ REMOVIDAS propriedades inválidas:
-                  // inputBackgroundColor, inputFocusedBackgroundColor,
-                  // inputBorderColor, inputFocusedBorderColor,
-                  // buttonBackgroundColor, buttonTextColor
+                  // REMOVIDAS propriedades inválidas que causavam erro 422
                 },
               },
             },

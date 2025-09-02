@@ -5,8 +5,8 @@ export const subscriptionTypeSchema = z.enum(["basic", "premium"]);
 export const paymentMethodSchema = z.enum([
   "pix",
   "credit_card", 
-  "debit_card",
-  "boleto"
+  "debit_card"
+  // Removido "boleto" - não suportado mais
 ]);
 
 export const paymentFormSchema = z.object({

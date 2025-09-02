@@ -1,11 +1,11 @@
 export const SUBSCRIPTION_PRICES = {
   basic: 5.0,
-  premium: 5.0,
+  premium: 10.0,
 } as const;
 
 export const PAYMENT_LIMITS = {
   MIN_AMOUNT: 5.0,
-  MAX_AMOUNT: 10000.0,
+  MAX_AMOUNT: 10.0, // Valor máximo é R$ 10 (premium)
   MAX_INSTALLMENTS: 12,
 } as const;
 
