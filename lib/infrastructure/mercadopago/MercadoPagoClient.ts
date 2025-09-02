@@ -11,6 +11,7 @@ export interface MercadoPagoPaymentRequest {
   transaction_amount: number;
   payment_method_id: string;
   installments?: number;
+  token?: string; // ✅ Token para cartões
   payer: {
     email: string;
     identification?: {
@@ -64,7 +65,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
       : 'https://api.mercadopago.com'; // Mesmo endpoint para sandbox
   }
 
-  async createPayment(payment: Payment, payerEmail?: string, payerCpf?: string, metadata?: Record<string, string>): Promise<{
+  async createPayment(payment: Payment, payerEmail?: string, payerCpf?: string, metadata?: Record<string, string>, token?: string): Promise<{
     id: string;
     status: string;
     status_detail: string;
@@ -80,10 +81,11 @@ export class MercadoPagoClient implements IMercadoPagoClient {
         transaction_amount: payment.getAmount(),
         payment_method_id: payment.getPaymentMethod(),
         installments: payment.getInstallments(),
+        ...(token && { token }), // ✅ Incluir token apenas se disponível (para cartões)
         payer: {
           email: email,
-          // Para PIX, o CPF é OBRIGATÓRIO
-          identification: (payment.getPaymentMethod() === 'pix' && payerCpf) ? {
+          // Para PIX E CARTÕES, o CPF é OBRIGATÓRIO para reduzir rejeições
+          identification: payerCpf ? {
             type: 'CPF',
             number: payerCpf.replace(/\D/g, '') // Remove formatação do CPF
           } : undefined
@@ -104,7 +106,9 @@ export class MercadoPagoClient implements IMercadoPagoClient {
         method: payment.getPaymentMethod(),
         email: email,
         cpf: payerCpf ? payerCpf.replace(/\D/g, '') : 'não fornecido',
-        profileId: payment.getProfileId()
+        profileId: payment.getProfileId(),
+        hasToken: !!token,
+        tokenLength: token ? token.length : 0
       });
 
       const response = await this.makeRequest('POST', '/v1/payments', paymentData) as MercadoPagoPaymentResponse;
@@ -288,7 +292,8 @@ export class MercadoPagoClient implements IMercadoPagoClient {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.accessToken}`,
-        'X-Idempotency-Key': this.generateIdempotencyKey()
+        'X-Idempotency-Key': this.generateIdempotencyKey(),
+        'User-Agent': 'SOS-Checkout-Brinks/1.0'
       }
     };
 

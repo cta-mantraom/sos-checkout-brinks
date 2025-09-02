@@ -20,6 +20,7 @@ interface MercadoPagoBrickData {
     type?: string;
   };
   installments?: number;
+  token?: string; // Token do Payment Brick para cartões
   payer?: {
     email?: string;
     identification?: {
@@ -31,6 +32,7 @@ interface MercadoPagoBrickData {
     payment_method_id?: string;
     payment_method?: string;
     installments?: number;
+    token?: string; // Token pode vir dentro de formData também
     payer?: {
       email?: string;
       identification?: {
@@ -239,6 +241,21 @@ export function PaymentBrick({
                   isPix 
                 });
                 
+                // ✅ VALIDAÇÃO CRÍTICA: Para cartões, token é OBRIGATÓRIO
+                const isCardPayment = paymentMethod === 'credit_card' || paymentMethod === 'debit_card';
+                const token = brickData.token || brickData.formData?.token;
+                
+                if (isCardPayment && !token) {
+                  throw new Error('Token de pagamento não foi gerado pelo Payment Brick. Tente novamente.');
+                }
+                
+                console.log('Validações de pagamento:', {
+                  paymentMethod,
+                  isCardPayment,
+                  hasToken: !!token,
+                  tokenLength: token ? token.length : 0
+                });
+                
                 // Transformar dados do MercadoPago para formato esperado pelo backend
                 const transformedData = profileData ? {
                   // NOVO FLUXO: Enviar dados do perfil
@@ -246,9 +263,13 @@ export function PaymentBrick({
                   paymentMethodId: paymentMethodId || 'pix',
                   paymentMethod: paymentMethod,
                   installments: brickData.installments || brickData.formData?.installments || 1,
+                  token: token, // ✅ Token do Payment Brick para cartões
                   payer: {
                     email: brickData.payer?.email || brickData.formData?.payer?.email || profileData.email,
-                    identification: brickData.payer?.identification || brickData.formData?.payer?.identification
+                    identification: {
+                      type: 'CPF',
+                      number: profileData.cpf // ✅ SEMPRE usar CPF do profileData, não do Brick
+                    }
                   },
                   profileData: {
                     ...profileData,
@@ -261,6 +282,7 @@ export function PaymentBrick({
                   paymentMethodId: paymentMethodId || 'pix',
                   paymentMethod: paymentMethod,
                   installments: brickData.installments || brickData.formData?.installments || 1,
+                  token: token, // ✅ Token do Payment Brick para cartões
                   payer: {
                     email: brickData.payer?.email || brickData.formData?.payer?.email,
                     identification: brickData.payer?.identification || brickData.formData?.payer?.identification
@@ -407,7 +429,8 @@ export function PaymentBrick({
         }
       }
     };
-  }, [subscriptionType, profileId, amount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscriptionType, profileId, profileData, amount, initializeBrick, onPaymentSuccess, onPaymentError, onPaymentPending]);
 
   const subscriptionInfo = {
     basic: {

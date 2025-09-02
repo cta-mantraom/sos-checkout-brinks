@@ -131,10 +131,34 @@ export class ProcessPaymentUseCase {
         isNewFlow: 'true'
       } : undefined;
       
+      // ✅ VALIDAÇÃO CRÍTICA: Garantir consistência de CPF entre profileData e payer
+      if (isNewFlow) {
+        const paymentWithProfileData = validatedData as PaymentWithProfileData;
+        const profileCpf = profile.getCPF().getValue().replace(/\D/g, '');
+        const payerCpf = paymentWithProfileData.payer?.identification?.number?.replace(/\D/g, '');
+        
+        if (payerCpf && payerCpf !== profileCpf) {
+          console.warn('CPF INCONSISTENTE detectado:', {
+            profileCpf,
+            payerCpf,
+            profileId,
+            paymentMethod: paymentMethodId
+          });
+          
+          // Usar SEMPRE o CPF do profile para consistency
+          // O CPF do payer pode ser dados de teste do MercadoPago
+        }
+      }
+      
+      // Extrair token para cartões (se disponível)
+      const token = isNewFlow ? 
+        (validatedData as PaymentWithProfileData).token : 
+        (validatedData as CreatePaymentData).token;
+      
       const paymentResult = await this.paymentService.processPayment(payment, {
         email: profile.getEmail().getValue(),
         cpf: profile.getCPF().getValue()
-      }, metadata);
+      }, metadata, token);
 
       // 5. Processar resultado do pagamento
       let qrCodeGenerated = false;

@@ -33,6 +33,7 @@ const PaymentWithProfileSchema = z.object({
   paymentMethod: z.enum(['credit_card', 'debit_card', 'pix', 'boleto']),
   installments: z.number().int().min(1).max(12).default(1),
   description: z.string().optional(),
+  token: z.string().optional(), // ✅ Token do Payment Brick para cartões
   
   // Dados do pagador
   payer: z.object({

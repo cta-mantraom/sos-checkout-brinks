@@ -20,7 +20,6 @@ const CreatePaymentSchemaBase = z.object({
     errorMap: () => ({ message: 'Método de pagamento deve ser credit_card, debit_card, pix ou boleto' })
   }),
   
-  
   installments: z.number()
     .int('Parcelas deve ser um número inteiro')
     .min(1, 'Mínimo de 1 parcela')
@@ -31,6 +30,8 @@ const CreatePaymentSchemaBase = z.object({
   description: z.string()
     .max(255, 'Descrição deve ter no máximo 255 caracteres')
     .optional(),
+    
+  token: z.string().optional(), // ✅ Token do Payment Brick para cartões
     
   // Dados do pagador (para MercadoPago)
   payer: z.object({
