@@ -106,15 +106,23 @@ export function PaymentBrick({
   const [showStatusScreen, setShowStatusScreen] = React.useState(false);
   const [mercadoPagoPaymentId, setMercadoPagoPaymentId] = React.useState<string | null>(null);
   
-  const { deviceId } = useMercadoPago();
+  const context = useMercadoPago();
+  const { deviceId } = context;
+  const ensureDeviceId = (context as { ensureDeviceId?: (maxRetries?: number) => Promise<string | null> }).ensureDeviceId;
   const { createBrick, unmountBrick, isReady } = useMercadoPagoBrick();
 
   const containerId = 'payment-brick-container';
 
   React.useEffect(() => {
-    // Aguardar MercadoPago estar pronto
+    // ✅ VALIDAÇÕES OBRIGATÓRIAS ANTES DE CRIAR BRICK
     if (!isReady) {
-      console.log('[PaymentBrick] Aguardando MercadoPago estar pronto...');
+      console.log('[PaymentBrick] ⏳ Aguardando MercadoPago estar pronto...');
+      return;
+    }
+    
+    // Aguardar Device ID estar disponível antes de criar Brick
+    if (!deviceId && !window.MP_DEVICE_SESSION_ID) {
+      console.log('[PaymentBrick] ⏳ Aguardando Device ID para criar Payment Brick...');
       return;
     }
 
@@ -178,17 +186,38 @@ export function PaymentBrick({
             onSubmit: async (data: unknown) => {
               console.log('Dados brutos do MercadoPago Brick:', JSON.stringify(data, null, 2));
               
-              // ✅ VALIDAÇÃO CRÍTICA: Device ID OBRIGATÓRIO
-              if (!deviceId) {
-                const deviceError = new Error('Device ID é obrigatório para segurança. Aguarde o carregamento da página.');
-                console.error('[PaymentBrick] ❌ Device ID não encontrado');
+              // ✅ VALIDAÇÃO CRÍTICA: Garantir Device ID SEMPRE
+              console.log('[PaymentBrick] 🔍 Validando Device ID para pagamento...');
+              
+              let finalDeviceId = deviceId;
+              
+              // Se não tiver Device ID, tentar obter
+              if (!finalDeviceId) {
+                console.log('[PaymentBrick] 🔄 Device ID não disponível, forçando detecção...');
+                
+                if (ensureDeviceId) {
+                  finalDeviceId = await ensureDeviceId(30); // 3 segundos
+                }
+                
+                // Última tentativa: verificar window diretamente
+                if (!finalDeviceId && window.MP_DEVICE_SESSION_ID) {
+                  finalDeviceId = window.MP_DEVICE_SESSION_ID;
+                  console.log('[PaymentBrick] 🎯 Device ID encontrado diretamente no window');
+                }
+              }
+              
+              // BLOQUEIO ABSOLUTO se não tiver Device ID
+              if (!finalDeviceId) {
+                const deviceError = new Error('Device ID é obrigatório para segurança. Recarregue a página e aguarde o carregamento completo.');
+                console.error('[PaymentBrick] ❌ BLOQUEIO: Device ID não encontrado após todas as tentativas');
                 onPaymentError(deviceError);
                 return;
               }
               
-              console.log('[PaymentBrick] ✅ Device ID detectado:', {
-                deviceId: deviceId.substring(0, 8) + '...', // Log mascarado
-                length: deviceId.length
+              console.log('[PaymentBrick] ✅ Device ID GARANTIDO para pagamento:', {
+                deviceId: finalDeviceId.substring(0, 8) + '...', // Log mascarado
+                length: finalDeviceId.length,
+                source: finalDeviceId === deviceId ? 'context' : 'forced_detection'
               });
               
               // Validar e tipar dados do Brick
@@ -274,7 +303,7 @@ export function PaymentBrick({
                   paymentMethod: paymentMethod,
                   installments: brickData.installments || brickData.formData?.installments || 1,
                   token: token, // ✅ Token do Payment Brick para cartões
-                  deviceId: deviceId, // ✅ Device ID OBRIGATÓRIO
+                  deviceId: finalDeviceId, // ✅ Device ID GARANTIDO
                   payer: {
                     email: brickData.payer?.email || brickData.formData?.payer?.email || profileData.email,
                     identification: {
@@ -294,7 +323,7 @@ export function PaymentBrick({
                   paymentMethod: paymentMethod,
                   installments: brickData.installments || brickData.formData?.installments || 1,
                   token: token, // ✅ Token do Payment Brick para cartões
-                  deviceId: deviceId, // ✅ Device ID OBRIGATÓRIO
+                  deviceId: finalDeviceId, // ✅ Device ID GARANTIDO
                   payer: {
                     email: brickData.payer?.email || brickData.formData?.payer?.email,
                     identification: brickData.payer?.identification || brickData.formData?.payer?.identification
@@ -306,10 +335,12 @@ export function PaymentBrick({
                 console.log('Dados transformados para envio:', transformedData);
 
                 // ✅ Log de dados transformados (mascarado)
-                console.log('Dados transformados para envio:', {
+                console.log('[PaymentBrick] 📦 Dados transformados para envio:', {
                   ...transformedData,
                   deviceId: transformedData.deviceId?.substring(0, 8) + '...', // Mascarar Device ID
                   token: token ? token.substring(0, 8) + '...' : undefined, // Mascarar token
+                  paymentMethod: transformedData.paymentMethod,
+                  amount: transformedData.amount
                 });
 
                 // IMPORTANTE: Usar API process-payment que NÃO salva no banco
@@ -318,7 +349,7 @@ export function PaymentBrick({
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'X-Device-Session-Id': deviceId || '', // ✅ Header de segurança
+                    'X-Device-Session-Id': finalDeviceId, // ✅ Header de segurança GARANTIDO
                   },
                   body: JSON.stringify(transformedData),
                 });

@@ -32,6 +32,7 @@ const CreatePaymentSchemaBase = z.object({
     .optional(),
     
   token: z.string().optional(), // ✅ Token do Payment Brick para cartões
+  deviceId: z.string().optional(), // ✅ Device ID para segurança MercadoPago
     
   // Dados do pagador (para MercadoPago)
   payer: z.object({
@@ -202,6 +203,11 @@ export class PaymentDTO {
     const identification = payer?.identification as Record<string, unknown> | undefined;
     if (identification?.number && typeof identification.number === 'string') {
       identification.number = identification.number.replace(/\D/g, '');
+    }
+
+    // Garantir que deviceId seja string ou undefined
+    if (cleaned.deviceId !== undefined && typeof cleaned.deviceId !== 'string') {
+      cleaned.deviceId = String(cleaned.deviceId);
     }
 
     return cleaned;

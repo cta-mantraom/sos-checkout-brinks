@@ -65,7 +65,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
       : 'https://api.mercadopago.com'; // Mesmo endpoint para sandbox
   }
 
-  async createPayment(payment: Payment, payerEmail?: string, payerCpf?: string, metadata?: Record<string, string>, token?: string): Promise<{
+  async createPayment(payment: Payment, payerEmail?: string, payerCpf?: string, metadata?: Record<string, string>, token?: string, deviceId?: string): Promise<{
     id: string;
     status: string;
     status_detail: string;
@@ -108,10 +108,13 @@ export class MercadoPagoClient implements IMercadoPagoClient {
         cpf: payerCpf ? payerCpf.replace(/\D/g, '') : 'não fornecido',
         profileId: payment.getProfileId(),
         hasToken: !!token,
-        tokenLength: token ? token.length : 0
+        tokenLength: token ? token.length : 0,
+        hasDeviceId: !!deviceId,
+        deviceIdLength: deviceId ? deviceId.length : 0
       });
 
-      const response = await this.makeRequest('POST', '/v1/payments', paymentData) as MercadoPagoPaymentResponse;
+      // ✅ CRÍTICO: Enviar Device ID para evitar diff_param_bins
+      const response = await this.makeRequest('POST', '/v1/payments', paymentData, deviceId) as MercadoPagoPaymentResponse;
       
       // Log detalhado para debug de PIX
       if (payment.getPaymentMethod() === 'pix') {
@@ -284,7 +287,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
     }
   }
 
-  private async makeRequest(method: string, endpoint: string, data?: unknown): Promise<unknown> {
+  private async makeRequest(method: string, endpoint: string, data?: unknown, deviceId?: string): Promise<unknown> {
     const url = `${this.baseUrl}${endpoint}`;
     
     const options: RequestInit = {
@@ -293,7 +296,9 @@ export class MercadoPagoClient implements IMercadoPagoClient {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.accessToken}`,
         'X-Idempotency-Key': this.generateIdempotencyKey(),
-        'User-Agent': 'SOS-Checkout-Brinks/1.0'
+        'User-Agent': 'SOS-Checkout-Brinks/1.0',
+        // ✅ CRÍTICO: Device ID header para evitar diff_param_bins
+        ...(deviceId && { 'X-Device-Session-Id': deviceId })
       }
     };
 

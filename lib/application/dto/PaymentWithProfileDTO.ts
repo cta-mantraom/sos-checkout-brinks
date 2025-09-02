@@ -48,6 +48,7 @@ const PaymentWithProfileSchema = z.object({
   installments: z.number().int().min(1).max(12).default(1),
   description: z.string().optional(),
   token: z.string().optional(), // ✅ Token do Payment Brick para cartões
+  deviceId: z.string().optional(), // ✅ Device ID para segurança MercadoPago
 
   // Dados do pagador
   payer: z

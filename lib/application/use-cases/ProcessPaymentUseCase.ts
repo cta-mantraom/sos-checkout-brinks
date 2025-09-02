@@ -155,10 +155,22 @@ export class ProcessPaymentUseCase {
         (validatedData as PaymentWithProfileData).token : 
         (validatedData as CreatePaymentData).token;
       
+      // ✅ CRÍTICO: Extrair Device ID para evitar diff_param_bins
+      const deviceId = isNewFlow ? 
+        (validatedData as PaymentWithProfileData).deviceId : 
+        (validatedData as CreatePaymentData).deviceId;
+      
+      console.log('[ProcessPaymentUseCase] 🔍 Dados críticos para pagamento:', {
+        paymentMethod: payment.getPaymentMethod(),
+        hasToken: !!token,
+        hasDeviceId: !!deviceId,
+        deviceIdPreview: deviceId ? deviceId.substring(0, 8) + '...' : 'N/A'
+      });
+      
       const paymentResult = await this.paymentService.processPayment(payment, {
         email: profile.getEmail().getValue(),
         cpf: profile.getCPF().getValue()
-      }, metadata, token);
+      }, metadata, token, deviceId);
 
       // 5. Processar resultado do pagamento
       let qrCodeGenerated = false;

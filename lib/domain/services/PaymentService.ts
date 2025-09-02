@@ -28,7 +28,7 @@ export interface MercadoPagoPaymentDetails {
 }
 
 export interface IMercadoPagoClient {
-  createPayment(payment: Payment, payerEmail?: string, payerCpf?: string, metadata?: Record<string, string>, token?: string): Promise<{
+  createPayment(payment: Payment, payerEmail?: string, payerCpf?: string, metadata?: Record<string, string>, token?: string, deviceId?: string): Promise<{
     id: string;
     status: string;
     status_detail: string;
@@ -47,7 +47,7 @@ export interface PayerInfo {
 }
 
 export interface IPaymentService {
-  processPayment(payment: Payment, payerInfo?: PayerInfo, metadata?: Record<string, string>, token?: string): Promise<PaymentResult>;
+  processPayment(payment: Payment, payerInfo?: PayerInfo, metadata?: Record<string, string>, token?: string, deviceId?: string): Promise<PaymentResult>;
   validateWebhook(payload: unknown, headers: Record<string, string>): Promise<boolean>;
   updatePaymentStatus(id: string, status: PaymentStatus): Promise<void>;
   getPaymentById(id: string): Promise<Payment | null>;
@@ -61,7 +61,7 @@ export class PaymentService implements IPaymentService {
     private readonly mercadoPagoClient: IMercadoPagoClient
   ) {}
 
-  async processPayment(payment: Payment, payerInfo?: PayerInfo, metadata?: Record<string, string>, token?: string): Promise<PaymentResult> {
+  async processPayment(payment: Payment, payerInfo?: PayerInfo, metadata?: Record<string, string>, token?: string, deviceId?: string): Promise<PaymentResult> {
     try {
       // Validações de domínio
       if (!payment.canBeProcessed()) {
@@ -85,8 +85,19 @@ export class PaymentService implements IPaymentService {
         payerInfo?.email,
         payerInfo?.cpf,
         metadata,
-        token // ✅ Token para cartões
+        token, // ✅ Token para cartões
+        deviceId // ✅ Device ID CRÍTICO para evitar diff_param_bins
       );
+      
+      // Log crítico para debug de diff_param_bins
+      console.log('[PaymentService] 🔍 Pagamento processado no MercadoPago:', {
+        paymentId: payment.getId(),
+        mpId: mpResult.id,
+        status: mpResult.status,
+        paymentMethod: payment.getPaymentMethod(),
+        hasDeviceId: !!deviceId,
+        deviceIdPreview: deviceId ? deviceId.substring(0, 8) + '...' : 'N/A'
+      });
 
       // Atualizar dados do pagamento
       payment.setMercadoPagoData(mpResult.id, {
