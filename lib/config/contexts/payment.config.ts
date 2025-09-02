@@ -1,17 +1,17 @@
-import { ConfigSingleton, ConfigMask } from '../utils/index.js';
+import { ConfigSingleton, ConfigMask } from "../utils/index.js";
 import {
   PaymentConfigSchema,
   PaymentEnvSchema,
   type PaymentConfig,
   type PaymentEnv,
-} from '../schemas/index.js';
+} from "../schemas/index.js";
 
 /**
  * Configuração de pagamento com singleton + lazy loading
  * ISOLADO - uma responsabilidade: configuração de pagamento
  */
 export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
-  private static readonly CONFIG_KEY = 'payment';
+  private static readonly CONFIG_KEY = "payment";
 
   public constructor() {
     super(PaymentConfigService.CONFIG_KEY);
@@ -34,18 +34,21 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
     try {
       // 1. Validar variáveis de ambiente primeiro
       const envData = this.loadEnvironmentData();
-      
+
       // 2. Construir configuração usando dados parciais (defaults do schema serão aplicados)
       const config = {
         mercadopago: {
           accessToken: envData.MERCADOPAGO_ACCESS_TOKEN,
           publicKey: envData.MERCADOPAGO_PUBLIC_KEY,
           webhookSecret: envData.MERCADOPAGO_WEBHOOK_SECRET,
-          environment: envData.NODE_ENV === 'production' ? 'production' as const : 'sandbox' as const,
+          environment:
+            envData.NODE_ENV === "production"
+              ? ("production" as const)
+              : ("sandbox" as const),
         },
         prices: {
-          basic: 5.00 as const,
-          premium: 10.00 as const,
+          basic: 5.0 as const,
+          premium: 5.0 as const,
         },
         paymentMethods: {
           creditCard: true,
@@ -63,12 +66,14 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
       this.logConfigLoaded(validatedConfig);
 
       return validatedConfig;
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
       ConfigMask.logError(
-        new Error(`Falha ao carregar configuração de pagamento: ${errorMessage}`),
-        'PaymentConfig'
+        new Error(
+          `Falha ao carregar configuração de pagamento: ${errorMessage}`
+        ),
+        "PaymentConfig"
       );
       throw error;
     }
@@ -80,12 +85,17 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
   private loadEnvironmentData(): PaymentEnv {
     // Verificar se todas as variáveis obrigatórias existem
     const missingVars: string[] = [];
-    if (!process.env.MERCADOPAGO_ACCESS_TOKEN) missingVars.push('MERCADOPAGO_ACCESS_TOKEN');
-    if (!process.env.MERCADOPAGO_PUBLIC_KEY) missingVars.push('MERCADOPAGO_PUBLIC_KEY');
-    if (!process.env.MERCADOPAGO_WEBHOOK_SECRET) missingVars.push('MERCADOPAGO_WEBHOOK_SECRET');
-    
+    if (!process.env.MERCADOPAGO_ACCESS_TOKEN)
+      missingVars.push("MERCADOPAGO_ACCESS_TOKEN");
+    if (!process.env.MERCADOPAGO_PUBLIC_KEY)
+      missingVars.push("MERCADOPAGO_PUBLIC_KEY");
+    if (!process.env.MERCADOPAGO_WEBHOOK_SECRET)
+      missingVars.push("MERCADOPAGO_WEBHOOK_SECRET");
+
     if (missingVars.length > 0) {
-      throw new Error(`Variáveis de ambiente obrigatórias ausentes: ${missingVars.join(', ')}`);
+      throw new Error(
+        `Variáveis de ambiente obrigatórias ausentes: ${missingVars.join(", ")}`
+      );
     }
 
     // Criar objeto de environment data (schema aplicará defaults)
@@ -93,7 +103,11 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
       MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN!,
       MERCADOPAGO_PUBLIC_KEY: process.env.MERCADOPAGO_PUBLIC_KEY!,
       MERCADOPAGO_WEBHOOK_SECRET: process.env.MERCADOPAGO_WEBHOOK_SECRET!,
-      NODE_ENV: process.env.NODE_ENV as 'development' | 'production' | 'test' | undefined,
+      NODE_ENV: process.env.NODE_ENV as
+        | "development"
+        | "production"
+        | "test"
+        | undefined,
     };
 
     // Validar com schema (defaults serão aplicados automaticamente)
@@ -117,7 +131,7 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
         prices: config.prices,
         paymentMethods: config.paymentMethods,
       },
-      'PaymentConfig'
+      "PaymentConfig"
     );
   }
 
@@ -149,7 +163,7 @@ export class PaymentConfigService extends ConfigSingleton<PaymentConfig> {
    * Verifica se está em ambiente de produção
    */
   public isProduction(): boolean {
-    return this.getConfig().mercadopago.environment === 'production';
+    return this.getConfig().mercadopago.environment === "production";
   }
 
   /**

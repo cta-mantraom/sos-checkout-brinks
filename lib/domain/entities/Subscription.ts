@@ -1,7 +1,11 @@
-import { ValidationError } from '../errors.js';
+import { ValidationError } from "../errors.js";
 
-export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'suspended';
-export type SubscriptionPlan = 'basic' | 'premium';
+export type SubscriptionStatus =
+  | "active"
+  | "expired"
+  | "cancelled"
+  | "suspended";
+export type SubscriptionPlan = "basic" | "premium";
 
 export interface CreateSubscriptionProps {
   profileId: string;
@@ -26,13 +30,13 @@ export interface SubscriptionDTO {
 
 export class Subscription {
   private static readonly PLAN_DURATIONS: Record<SubscriptionPlan, number> = {
-    basic: 30,    // 30 dias
-    premium: 365  // 365 dias (1 ano)
+    basic: 30, // 30 dias
+    premium: 365, // 365 dias (1 ano)
   };
 
   private static readonly PLAN_PRICES: Record<SubscriptionPlan, number> = {
-    basic: 5.00,    // R$ 5,00
-    premium: 10.00  // R$ 10,00
+    basic: 5.0, // R$ 5,00
+    premium: 5.0, // R$ 5,00
   };
 
   private constructor(
@@ -51,8 +55,8 @@ export class Subscription {
   ) {}
 
   static create(props: CreateSubscriptionProps): Subscription {
-    if (!props.profileId || props.profileId.trim() === '') {
-      throw ValidationError.required('profileId');
+    if (!props.profileId || props.profileId.trim() === "") {
+      throw ValidationError.required("profileId");
     }
 
     const id = this.generateId();
@@ -65,7 +69,7 @@ export class Subscription {
       id,
       props.profileId.trim(),
       props.plan,
-      'active',
+      "active",
       props.paymentId,
       now,
       endDate,
@@ -95,7 +99,9 @@ export class Subscription {
   }
 
   private static generateId(): string {
-    return `subscription_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    return `subscription_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(2, 11)}`;
   }
 
   // Getters
@@ -149,16 +155,20 @@ export class Subscription {
 
   // Business Logic Methods
   renew(newPaymentId?: string): void {
-    if (this.status === 'cancelled') {
-      throw new ValidationError('Não é possível renovar uma assinatura cancelada');
+    if (this.status === "cancelled") {
+      throw new ValidationError(
+        "Não é possível renovar uma assinatura cancelada"
+      );
     }
 
     const duration = Subscription.PLAN_DURATIONS[this.plan];
     const now = new Date();
-    
+
     this.endDate = new Date(now.getTime() + duration * 24 * 60 * 60 * 1000);
-    this.renewalDate = new Date(this.endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-    this.status = 'active';
+    this.renewalDate = new Date(
+      this.endDate.getTime() - 7 * 24 * 60 * 60 * 1000
+    );
+    this.status = "active";
     this.suspendedAt = undefined;
     this.updatedAt = now;
 
@@ -169,42 +179,48 @@ export class Subscription {
   }
 
   cancel(): void {
-    if (this.status === 'cancelled') {
+    if (this.status === "cancelled") {
       return; // Já está cancelada
     }
 
-    this.status = 'cancelled';
+    this.status = "cancelled";
     this.cancelledAt = new Date();
     this.updatedAt = new Date();
   }
 
   suspend(): void {
-    if (this.status !== 'active') {
-      throw new ValidationError('Apenas assinaturas ativas podem ser suspensas');
+    if (this.status !== "active") {
+      throw new ValidationError(
+        "Apenas assinaturas ativas podem ser suspensas"
+      );
     }
 
-    this.status = 'suspended';
+    this.status = "suspended";
     this.suspendedAt = new Date();
     this.updatedAt = new Date();
   }
 
   reactivate(): void {
-    if (this.status !== 'suspended') {
-      throw new ValidationError('Apenas assinaturas suspensas podem ser reativadas');
+    if (this.status !== "suspended") {
+      throw new ValidationError(
+        "Apenas assinaturas suspensas podem ser reativadas"
+      );
     }
 
     if (this.isExpired()) {
-      throw new ValidationError('Não é possível reativar uma assinatura expirada');
+      throw new ValidationError(
+        "Não é possível reativar uma assinatura expirada"
+      );
     }
 
-    this.status = 'active';
+    this.status = "active";
     this.suspendedAt = undefined;
     this.updatedAt = new Date();
   }
 
   checkAndUpdateExpiration(): boolean {
-    if (this.status === 'active' && this.isExpired()) {
-      this.status = 'expired';
+    if (this.status === "active" && this.isExpired()) {
+      this.status = "expired";
       this.updatedAt = new Date();
       return true;
     }
@@ -213,7 +229,7 @@ export class Subscription {
 
   // Validation Methods
   isActive(): boolean {
-    return this.status === 'active' && !this.isExpired();
+    return this.status === "active" && !this.isExpired();
   }
 
   isExpired(): boolean {
@@ -221,11 +237,11 @@ export class Subscription {
   }
 
   isCancelled(): boolean {
-    return this.status === 'cancelled';
+    return this.status === "cancelled";
   }
 
   isSuspended(): boolean {
-    return this.status === 'suspended';
+    return this.status === "suspended";
   }
 
   isNearRenewal(): boolean {
@@ -241,7 +257,7 @@ export class Subscription {
 
   getDaysUntilRenewal(): number {
     if (!this.renewalDate) return -1;
-    
+
     const now = new Date();
     const timeDiff = this.renewalDate.getTime() - now.getTime();
     return Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
@@ -252,30 +268,30 @@ export class Subscription {
   }
 
   canUpgrade(): boolean {
-    return this.plan === 'basic' && this.isActive();
+    return this.plan === "basic" && this.isActive();
   }
 
   canDowngrade(): boolean {
-    return this.plan === 'premium' && this.isActive();
+    return this.plan === "premium" && this.isActive();
   }
 
   getPlanFeatures(): string[] {
     const features = {
       basic: [
-        'QR Code médico básico',
-        'Informações de emergência',
-        'Suporte por email',
-        'Validade de 30 dias'
+        "QR Code médico básico",
+        "Informações de emergência",
+        "Suporte por email",
+        "Validade de 30 dias",
       ],
       premium: [
-        'QR Code médico completo',
-        'Informações médicas detalhadas',
-        'Histórico de medicamentos',
-        'Contatos de emergência múltiplos',
-        'Suporte prioritário 24/7',
-        'Backup automático',
-        'Validade de 1 ano'
-      ]
+        "QR Code médico completo",
+        "Informações médicas detalhadas",
+        "Histórico de medicamentos",
+        "Contatos de emergência múltiplos",
+        "Suporte prioritário 24/7",
+        "Backup automático",
+        "Validade de 1 ano",
+      ],
     };
 
     return features[this.plan];
@@ -308,7 +324,7 @@ export class Subscription {
       cancelledAt: this.cancelledAt,
       suspendedAt: this.suspendedAt,
       createdAt: this.createdAt,
-      updatedAt: this.updatedAt
+      updatedAt: this.updatedAt,
     };
   }
 }
