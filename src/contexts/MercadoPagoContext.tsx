@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { getMercadoPagoCredentials } from '../../lib/config';
 
 // Interfaces do MercadoPago
 interface MercadoPagoBrick {
@@ -58,7 +57,7 @@ export function MercadoPagoProvider({ children }: MercadoPagoProviderProps) {
     }
 
     // Criar nova promessa para Device ID
-    deviceIdPromiseRef.current = new Promise(async (resolve) => {
+    deviceIdPromiseRef.current = new Promise((resolve) => {
       let attempts = 0;
       
       const checkDeviceId = () => {
@@ -116,20 +115,13 @@ export function MercadoPagoProvider({ children }: MercadoPagoProviderProps) {
 
         console.log('[MercadoPagoProvider] ✅ SDK disponível');
 
-        // ✅ ETAPA 2: Obter public key usando configuração desacoplada
-        let publicKey: string;
-        try {
-          const credentials = getMercadoPagoCredentials();
-          publicKey = credentials.publicKey;
-          console.log('[MercadoPagoProvider] ✅ Configuração desacoplada - Environment:', credentials.environment);
-        } catch (configError) {
-          // Fallback para variáveis de ambiente diretas (desenvolvimento)
-          console.warn('[MercadoPagoProvider] ⚠️ Fallback para env diretas:', configError);
-          publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
-          if (!publicKey || publicKey === 'YOUR_MERCADOPAGO_PUBLIC_KEY_HERE') {
-            throw new Error('MercadoPago Public Key não configurada. Configure VITE_MERCADOPAGO_PUBLIC_KEY no arquivo .env ou as variáveis do servidor');
-          }
+        // ✅ ETAPA 2: Obter public key APENAS do frontend (SEGURO)
+        // ❌ NUNCA usar getMercadoPagoCredentials() no frontend - contém secrets
+        const publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
+        if (!publicKey || publicKey === 'YOUR_MERCADOPAGO_PUBLIC_KEY_HERE') {
+          throw new Error('MercadoPago Public Key não configurada. Configure VITE_MERCADOPAGO_PUBLIC_KEY no arquivo .env');
         }
+        console.log('[MercadoPagoProvider] ✅ Public Key obtida do frontend (seguro)');
 
         // ✅ ETAPA 3: Criar instância MercadoPago
         const mpInstance = new window.MercadoPago(publicKey, {

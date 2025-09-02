@@ -298,7 +298,7 @@ export class MercadoPagoClient implements IMercadoPagoClient {
         'X-Idempotency-Key': this.generateIdempotencyKey(),
         'User-Agent': 'SOS-Checkout-Brinks/1.0',
         // ✅ CRÍTICO: Device ID header para evitar diff_param_bins
-        ...(deviceId && { 'X-Device-Session-Id': deviceId })
+        ...(deviceId && { 'X-meli-session-id': deviceId })
       }
     };
 

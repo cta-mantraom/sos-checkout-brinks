@@ -16,6 +16,7 @@ export const paymentFormSchema = z.object({
     .min(1, "Mínimo 1 parcela")
     .max(12, "Máximo 12 parcelas")
     .default(1),
+  deviceId: z.string().optional(), // ✅ Device ID para evitar diff_param_bins
 });
 
 export const creditCardSchema = z.object({
@@ -34,6 +35,8 @@ export const creditCardSchema = z.object({
   
   holderCpf: z.string()
     .regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, "CPF deve ter formato válido"),
+  
+  deviceId: z.string().optional(), // ✅ Device ID para evitar diff_param_bins
 });
 
 export const pixFormSchema = z.object({
@@ -46,6 +49,8 @@ export const pixFormSchema = z.object({
   
   payerEmail: z.string()
     .email("Email deve ter formato válido"),
+  
+  deviceId: z.string().optional(), // ✅ Device ID para evitar diff_param_bins
 });
 
 export const boletoFormSchema = z.object({
