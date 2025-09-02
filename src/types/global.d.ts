@@ -29,6 +29,7 @@ interface MercadoPagoConstructor {
 declare global {
   interface Window {
     MercadoPago: MercadoPagoConstructor;
+    MP_DEVICE_SESSION_ID?: string;  // Device ID gerado pelo MercadoPago para segurança
   }
 }
 

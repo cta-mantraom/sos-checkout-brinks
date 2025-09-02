@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/common/LoadingStates';
 import { AlertCircle } from 'lucide-react';
+import { useMercadoPago } from '@/contexts/MercadoPagoContext';
 
 interface StatusScreenBrickProps {
   paymentId: string; // ID do pagamento no MercadoPago
@@ -33,6 +34,9 @@ export function StatusScreenBrick({
   const navigate = useNavigate();
   const containerId = `status-screen-brick-${paymentId}`;
   const pollIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const initializationRef = React.useRef(false);
+  
+  const { mp, isReady } = useMercadoPago();
 
   console.log('[StatusScreenBrick] Componente montado com paymentId:', paymentId);
   console.log('[StatusScreenBrick] DEBUG - Tipo do paymentId:', typeof paymentId, 'Valor:', paymentId);
@@ -55,6 +59,20 @@ export function StatusScreenBrick({
       setIsLoading(false);
       return;
     }
+    
+    // Aguardar MercadoPago estar pronto
+    if (!isReady || !mp) {
+      console.log('[StatusScreenBrick] Aguardando MercadoPago estar pronto...');
+      return;
+    }
+    
+    // Evitar múltiplas inicializações
+    if (initializationRef.current) {
+      console.log('[StatusScreenBrick] Já inicializado, pulando...');
+      return;
+    }
+    
+    initializationRef.current = true;
 
     console.log('[StatusScreenBrick] Inicializando Status Screen para paymentId:', paymentId);
     
@@ -63,47 +81,13 @@ export function StatusScreenBrick({
         setIsLoading(true);
         setError(null);
 
-        // Verificar se MercadoPago SDK está carregado
-        if (!window.MercadoPago) {
-          // Carregar SDK se ainda não estiver carregado
-          await new Promise<void>((resolve, reject) => {
-            if (document.querySelector('script[src*="sdk.mercadopago.com"]')) {
-              // SDK já está sendo carregado, aguardar
-              const checkInterval = setInterval(() => {
-                if (window.MercadoPago) {
-                  clearInterval(checkInterval);
-                  resolve();
-                }
-              }, 100);
-              
-              // Timeout após 10 segundos
-              setTimeout(() => {
-                clearInterval(checkInterval);
-                reject(new Error('Timeout ao carregar SDK do MercadoPago'));
-              }, 10000);
-            } else {
-              // Carregar SDK
-              const script = document.createElement('script');
-              script.src = 'https://sdk.mercadopago.com/js/v2';
-              script.onload = () => resolve();
-              script.onerror = () => reject(new Error('Erro ao carregar SDK do MercadoPago'));
-              document.head.appendChild(script);
-            }
-          });
+        // MercadoPago já está inicializado via contexto global
+        if (!mp) {
+          throw new Error('MercadoPago não está inicializado');
         }
-
+        
         // Aguardar container estar no DOM
         await new Promise(resolve => setTimeout(resolve, 100));
-
-        const publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
-        if (!publicKey || publicKey === 'YOUR_MERCADOPAGO_PUBLIC_KEY_HERE') {
-          throw new Error('MercadoPago Public Key não configurada');
-        }
-
-        // Inicializar MercadoPago
-        const mp = new window.MercadoPago(publicKey, {
-          locale: 'pt-BR'
-        });
 
         // Configurar Status Screen Brick
         const bricksBuilder = mp.bricks();
@@ -226,7 +210,12 @@ export function StatusScreenBrick({
         }
       }
     };
-  }, [paymentId, navigate, onSuccess, onError]);
+    
+    // Cleanup
+    return () => {
+      initializationRef.current = false;
+    };
+  }, [paymentId, navigate, onSuccess, onError, isReady, mp]);
 
   if (error) {
     return (

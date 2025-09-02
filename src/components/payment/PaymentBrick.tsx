@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/common/LoadingStates';
 import { FormErrorDisplay } from '@/components/common/ErrorBoundary';
 import { StatusScreenBrick } from './StatusScreenBrick';
-import { useMercadoPagoBrick } from '@/hooks/usePayment';
+import { useMercadoPago, useMercadoPagoBrick } from '@/contexts/MercadoPagoContext';
 import { SubscriptionType } from '@/schemas/payment';
 import { SUBSCRIPTION_PRICES } from '@/lib/constants/prices';
 import { CreditCard, Smartphone, Receipt } from 'lucide-react';
@@ -90,12 +90,6 @@ interface PaymentBrickProps {
   disabled?: boolean;
 }
 
-interface BrickInstance {
-  mount: (containerId: string) => void;
-  unmount: () => void;
-  update: (data: Record<string, unknown>) => void;
-}
-
 export function PaymentBrick({
   subscriptionType,
   profileId,
@@ -109,14 +103,21 @@ export function PaymentBrick({
 }: PaymentBrickProps) {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [brickInstance, setBrickInstance] = React.useState<BrickInstance | null>(null);
   const [showStatusScreen, setShowStatusScreen] = React.useState(false);
   const [mercadoPagoPaymentId, setMercadoPagoPaymentId] = React.useState<string | null>(null);
-  const { initializeBrick } = useMercadoPagoBrick();
+  
+  const { deviceId } = useMercadoPago();
+  const { createBrick, unmountBrick, isReady } = useMercadoPagoBrick();
 
   const containerId = 'payment-brick-container';
 
   React.useEffect(() => {
+    // Aguardar MercadoPago estar pronto
+    if (!isReady) {
+      console.log('[PaymentBrick] Aguardando MercadoPago estar pronto...');
+      return;
+    }
+
     const loadBrick = async () => {
       try {
         setIsLoading(true);
@@ -155,12 +156,9 @@ export function PaymentBrick({
               style: {
                 customVariables: {
                   formBackgroundColor: '#ffffff',
-                  inputBackgroundColor: '#ffffff',
-                  inputFocusedBackgroundColor: '#ffffff',
-                  inputBorderColor: '#e2e8f0',
-                  inputFocusedBorderColor: '#3b82f6',
-                  buttonBackgroundColor: '#3b82f6',
-                  buttonTextColor: '#ffffff',
+                  baseColor: '#3b82f6',  // ✅ Cor principal válida
+                  completeColor: '#10b981',  // ✅ Cor de sucesso válida
+                  errorColor: '#ef4444',  // ✅ Cor de erro válida
                   fontSizeExtraSmall: '12px',
                   fontSizeSmall: '14px',
                   fontSizeMedium: '16px',
@@ -169,6 +167,10 @@ export function PaymentBrick({
                   fontWeightSemiBold: '600',
                   formPadding: '16px',
                   formBorderRadius: '8px',
+                  // ❌ REMOVIDAS propriedades inválidas:
+                  // inputBackgroundColor, inputFocusedBackgroundColor,
+                  // inputBorderColor, inputFocusedBorderColor,
+                  // buttonBackgroundColor, buttonTextColor
                 },
               },
             },
@@ -180,6 +182,19 @@ export function PaymentBrick({
             },
             onSubmit: async (data: unknown) => {
               console.log('Dados brutos do MercadoPago Brick:', JSON.stringify(data, null, 2));
+              
+              // ✅ VALIDAÇÃO CRÍTICA: Device ID OBRIGATÓRIO
+              if (!deviceId) {
+                const deviceError = new Error('Device ID é obrigatório para segurança. Aguarde o carregamento da página.');
+                console.error('[PaymentBrick] ❌ Device ID não encontrado');
+                onPaymentError(deviceError);
+                return;
+              }
+              
+              console.log('[PaymentBrick] ✅ Device ID detectado:', {
+                deviceId: deviceId.substring(0, 8) + '...', // Log mascarado
+                length: deviceId.length
+              });
               
               // Validar e tipar dados do Brick
               const brickData = data as MercadoPagoBrickData;
@@ -264,6 +279,7 @@ export function PaymentBrick({
                   paymentMethod: paymentMethod,
                   installments: brickData.installments || brickData.formData?.installments || 1,
                   token: token, // ✅ Token do Payment Brick para cartões
+                  deviceId: deviceId, // ✅ Device ID OBRIGATÓRIO
                   payer: {
                     email: brickData.payer?.email || brickData.formData?.payer?.email || profileData.email,
                     identification: {
@@ -283,6 +299,7 @@ export function PaymentBrick({
                   paymentMethod: paymentMethod,
                   installments: brickData.installments || brickData.formData?.installments || 1,
                   token: token, // ✅ Token do Payment Brick para cartões
+                  deviceId: deviceId, // ✅ Device ID OBRIGATÓRIO
                   payer: {
                     email: brickData.payer?.email || brickData.formData?.payer?.email,
                     identification: brickData.payer?.identification || brickData.formData?.payer?.identification
@@ -293,12 +310,20 @@ export function PaymentBrick({
                 
                 console.log('Dados transformados para envio:', transformedData);
 
+                // ✅ Log de dados transformados (mascarado)
+                console.log('Dados transformados para envio:', {
+                  ...transformedData,
+                  deviceId: transformedData.deviceId?.substring(0, 8) + '...', // Mascarar Device ID
+                  token: token ? token.substring(0, 8) + '...' : undefined, // Mascarar token
+                });
+
                 // IMPORTANTE: Usar API process-payment que NÃO salva no banco
                 // Dados só serão salvos quando pagamento for aprovado via webhook
                 const response = await fetch('/api/process-payment', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
+                    'X-Device-Session-Id': deviceId || '', // ✅ Header de segurança
                   },
                   body: JSON.stringify(transformedData),
                 });
@@ -353,10 +378,8 @@ export function PaymentBrick({
                       setMercadoPagoPaymentId(mercadoPagoId);
                       setShowStatusScreen(true);
                       // Esconder o Payment Brick
-                      if (brickInstance) {
-                        console.log('[PaymentBrick] Desmontando Payment Brick');
-                        brickInstance.unmount();
-                      }
+                      console.log('[PaymentBrick] Desmontando Payment Brick');
+                      unmountBrick(containerId);
                       // IMPORTANTE: NÃO chamar onPaymentPending para PIX
                       console.log('[PaymentBrick] StatusScreen deve ser renderizado agora');
                     } else {
@@ -390,8 +413,8 @@ export function PaymentBrick({
           },
         };
 
-        const brick = await initializeBrick(containerId, brickOptions);
-        setBrickInstance(brick);
+        await createBrick(containerId, brickOptions);
+        console.log('[PaymentBrick] Brick criado com sucesso');
       } catch (err) {
         console.error('Erro ao carregar Payment Brick:', err);
         setError(err instanceof Error ? err.message : 'Erro ao carregar formulário de pagamento');
@@ -399,38 +422,16 @@ export function PaymentBrick({
       }
     };
 
-    // Carregar o SDK do MercadoPago primeiro
-    if (!window.MercadoPago) {
-      const script = document.createElement('script');
-      script.src = 'https://sdk.mercadopago.com/js/v2';
-      script.onload = () => loadBrick();
-      script.onerror = () => {
-        setError('Erro ao carregar SDK do MercadoPago');
-        setIsLoading(false);
-      };
-      document.head.appendChild(script);
+    // Carregar brick quando MercadoPago estiver pronto
+    loadBrick();
 
-      return () => {
-        if (document.head.contains(script)) {
-          document.head.removeChild(script);
-        }
-      };
-    } else {
-      loadBrick();
-    }
-
-    // Cleanup
+    // ✅ Cleanup aprimorado
     return () => {
-      if (brickInstance) {
-        try {
-          brickInstance.unmount();
-        } catch (err) {
-          console.warn('Erro ao desmontar brick:', err);
-        }
-      }
+      console.log('[PaymentBrick] Limpando Payment Brick...');
+      unmountBrick(containerId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subscriptionType, profileId, profileData, amount, initializeBrick, onPaymentSuccess, onPaymentError, onPaymentPending]);
+  }, [isReady, subscriptionType, profileId, profileData, amount, deviceId, onPaymentSuccess, onPaymentError, onPaymentPending]);
 
   const subscriptionInfo = {
     basic: {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PaymentBrick } from '@/components/payment/PaymentBrick';
+import { MercadoPagoInitializer } from '@/components/payment/MercadoPagoInitializer';
 import { usePaymentCalculations, useProcessPayment } from '@/hooks/usePayment';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -275,7 +276,11 @@ export function CheckoutPage() {
               </Alert>
             )}
 
-            <PaymentBrick
+            <MercadoPagoInitializer
+              onReady={() => console.log('✅ MercadoPago pronto para CheckoutPage')}
+              onError={(error) => console.error('❌ Erro no MercadoPago:', error)}
+            >
+              <PaymentBrick
               subscriptionType={selectedPlan}
               profileId={profileId}  // Para compatibilidade
               profileData={formData ? {  // NOVO: Enviar dados do formulário
@@ -304,8 +309,9 @@ export function CheckoutPage() {
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentError={handlePaymentError}
               onPaymentPending={handlePaymentPending}
-              disabled={processPaymentMutation.isPending}
-            />
+                disabled={processPaymentMutation.isPending}
+              />
+            </MercadoPagoInitializer>
 
             {/* Próximos passos */}
             <Card className="mt-6">

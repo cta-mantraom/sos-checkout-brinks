@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { ErrorProvider } from '@/providers/ErrorProvider';
+import { MercadoPagoProvider } from '@/contexts/MercadoPagoContext';
 
 // Pages
 import { HomePage } from '@/pages/HomePage';
@@ -50,26 +51,28 @@ function App() {
   return (
     <ErrorProvider>
       <QueryProvider>
-        <Router>
-          <div className="App">
-            <AppRoutes />
-            
-            {/* Toast notifications */}
-            <Toaster 
-              position="top-right"
-              richColors
-              closeButton
-              duration={5000}
-              toastOptions={{
-                style: {
-                  background: 'hsl(var(--background))',
-                  border: '1px solid hsl(var(--border))',
-                  color: 'hsl(var(--foreground))',
-                },
-              }}
-            />
-          </div>
-        </Router>
+        <MercadoPagoProvider>
+          <Router>
+            <div className="App">
+              <AppRoutes />
+              
+              {/* Toast notifications */}
+              <Toaster 
+                position="top-right"
+                richColors
+                closeButton
+                duration={5000}
+                toastOptions={{
+                  style: {
+                    background: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    color: 'hsl(var(--foreground))',
+                  },
+                }}
+              />
+            </div>
+          </Router>
+        </MercadoPagoProvider>
       </QueryProvider>
     </ErrorProvider>
   );
