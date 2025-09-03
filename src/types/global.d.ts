@@ -14,7 +14,7 @@ interface MercadoPagoBrick {
 }
 
 interface MercadoPagoBricksBuilder {
-  create: (type: 'payment' | 'wallet' | 'cardForm', containerId: string, options: Record<string, unknown>) => Promise<MercadoPagoBrick>;
+  create: (type: 'payment' | 'statusScreen' | 'wallet' | 'cardForm', containerId: string, options: Record<string, unknown>) => Promise<MercadoPagoBrick>;
 }
 
 interface MercadoPagoInstance {

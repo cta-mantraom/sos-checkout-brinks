@@ -123,7 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ✅ 2. Validar dados de entrada com Zod (NUNCA usar any)
     const validatedData: RequestData = RequestSchema.parse({
-      payment: req.body.payment || req.body, // Flexibilidade para diferentes formatos
+      payment: req.body.payment,
       profile: req.body.profile,
       metadata: {
         deviceId,

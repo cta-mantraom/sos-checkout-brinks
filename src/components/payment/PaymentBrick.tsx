@@ -9,6 +9,41 @@ import { SubscriptionType } from '@/schemas/payment';
 import { SUBSCRIPTION_PRICES } from '@/lib/constants/prices';
 import { CreditCard, Smartphone, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { z } from 'zod';
+
+// ✅ Schema Zod para validar dados do Payment Brick (NUNCA usar any)
+const MercadoPagoBrickDataSchema = z.object({
+  paymentType: z.string().optional(),
+  selectedPaymentMethod: z.string().optional(),
+  payment_method_id: z.string().optional(), // Pode vir no nível raiz também
+  payment_method: z.string().optional(),
+  transaction_amount: z.number().optional(),
+  installments: z.number().optional(),
+  token: z.string().optional(),
+  issuer_id: z.string().optional(),
+  payer: z.object({
+    email: z.string().optional(),
+    identification: z.object({
+      type: z.string(),
+      number: z.string()
+    }).optional()
+  }).optional(),
+  formData: z.object({
+    payment_method_id: z.string().optional(),
+    payment_method: z.string().optional(),
+    transaction_amount: z.number().optional(),
+    installments: z.number().optional(),
+    token: z.string().optional(),
+    issuer_id: z.string().optional(),
+    payer: z.object({
+      email: z.string().optional(),
+      identification: z.object({
+        type: z.string(),
+        number: z.string()
+      }).optional()
+    }).optional()
+  }).optional()
+});
 
 // ✅ MODO DIRETO: Interface para dados do pagamento JÁ PROCESSADO pelo Payment Brick
 interface PaymentError {
@@ -198,14 +233,14 @@ export function PaymentBrick({
                 source: finalDeviceId === deviceId ? 'context' : 'forced_detection'
               });
               
-              // Validar e tipar dados do Brick
-              const brickData = data as MercadoPagoBrickData;
+              // Validar e tipar dados do Brick com Zod (NUNCA usar any)
+              const brickData = MercadoPagoBrickDataSchema.parse(data);
               
               try {
-                // Extrair dados do pagamento
-                const paymentData = brickData.formData || brickData;
-                const paymentMethodId = paymentData.payment_method_id;
-                const token = paymentData.token;
+                // Extrair dados do pagamento com fallback seguro
+                const paymentMethodId = brickData.formData?.payment_method_id || brickData.payment_method_id || '';
+                const token = brickData.formData?.token || brickData.token || '';
+                const installments = brickData.formData?.installments || brickData.installments || 1;
                 
                 // Detectar se é PIX
                 const isPix = paymentMethodId === 'pix';
@@ -216,16 +251,22 @@ export function PaymentBrick({
                   hasToken: !!token
                 });
                 
-                // Preparar dados para o backend processar
+                // Preparar dados para o backend processar - estrutura correta
                 const transformedData = {
-                  ...paymentData,
-                  profileData,
-                  amount,
-                  subscriptionType,
-                  deviceId: finalDeviceId,
-                  paymentMethod: paymentMethodId,
-                  paymentMethodId: paymentMethodId,
-                  installments: paymentData.installments || 1
+                  payment: {
+                    ...brickData, // paymentType, selectedPaymentMethod, formData
+                    paymentMethodId: paymentMethodId,
+                    installments: installments
+                  },
+                  profile: profileData ? {
+                    ...profileData,
+                    subscriptionPlan: subscriptionType
+                  } : undefined,
+                  metadata: {
+                    deviceId: finalDeviceId,
+                    amount,
+                    subscriptionType
+                  }
                 };
                 
                 // Backend processa o pagamento
