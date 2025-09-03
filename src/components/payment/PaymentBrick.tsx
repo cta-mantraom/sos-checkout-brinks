@@ -11,22 +11,6 @@ import { CreditCard, Smartphone, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ✅ MODO DIRETO: Interface para dados do pagamento JÁ PROCESSADO pelo Payment Brick
-interface DirectModePaymentData {
-  payment?: {
-    id?: string;
-    status?: 'approved' | 'pending' | 'rejected';
-    status_detail?: string;
-    transaction_amount?: number;
-    payment_method_id?: string;
-    point_of_interaction?: {
-      transaction_data?: {
-        qr_code?: string;
-        qr_code_base64?: string;
-      };
-    };
-  };
-}
-
 interface PaymentError {
   message?: string;
   cause?: unknown;
@@ -214,36 +198,44 @@ export function PaymentBrick({
                 source: finalDeviceId === deviceId ? 'context' : 'forced_detection'
               });
               
-              // ✅ MODO DIRETO: Extrair payment_id do pagamento JÁ PROCESSADO
-              const directModeData = data as DirectModePaymentData;
-              const paymentId = directModeData.payment?.id;
-              
-              if (!paymentId) {
-                console.error('[PaymentBrick] ❌ ERRO: Modo direto não retornou payment_id');
-                console.error('[PaymentBrick] Configure o Payment Brick para processar pagamentos diretamente');
-                onPaymentError(new Error('Pagamento não foi processado. Configure o Payment Brick em modo direto.'));
-                return;
-              }
-              
-              console.log('[PaymentBrick] ✅ MODO DIRETO: Pagamento processado pelo Brick, ID:', paymentId);
+              // Validar e tipar dados do Brick
+              const brickData = data as MercadoPagoBrickData;
               
               try {
-                // ✅ VALIDAR PAGAMENTO NO BACKEND
-                const response = await fetch('/api/validate-payment', {
+                // Extrair dados do pagamento
+                const paymentData = brickData.formData || brickData;
+                const paymentMethodId = paymentData.payment_method_id;
+                const token = paymentData.token;
+                
+                // Detectar se é PIX
+                const isPix = paymentMethodId === 'pix';
+                
+                console.log('[PaymentBrick] 📦 Dados para processar:', {
+                  method: paymentMethodId,
+                  isPix,
+                  hasToken: !!token
+                });
+                
+                // Preparar dados para o backend processar
+                const transformedData = {
+                  ...paymentData,
+                  profileData,
+                  amount,
+                  subscriptionType,
+                  deviceId: finalDeviceId,
+                  paymentMethod: paymentMethodId,
+                  paymentMethodId: paymentMethodId,
+                  installments: paymentData.installments || 1
+                };
+                
+                // Backend processa o pagamento
+                const response = await fetch('/api/process-payment', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                     'X-Device-Session-Id': finalDeviceId,
                   },
-                  body: JSON.stringify({
-                    paymentId: paymentId,
-                    profileData: {
-                      ...profileData,
-                      subscriptionPlan: subscriptionType
-                    },
-                    amount: amount,
-                    subscriptionType: subscriptionType
-                  }),
+                  body: JSON.stringify(transformedData),
                 });
                 
                 const result = await response.json();
@@ -252,51 +244,41 @@ export function PaymentBrick({
                   throw new Error(result.message || 'Erro ao validar pagamento no backend');
                 }
                 
-                console.log('[PaymentBrick] ✅ Pagamento validado no backend:', result);
+                console.log('[PaymentBrick] ✅ Resposta do backend:', result);
                 
-                // ✅ PROCESSAR RESULTADO BASEADO NO STATUS
-                const paymentStatus = result.payment?.status || directModeData.payment?.status;
-                const isPix = result.payment?.payment_method_id === 'pix' || directModeData.payment?.payment_method_id === 'pix';
+                // Processar resultado baseado no status
+                const paymentStatus = result.data?.payment?.status || result.payment?.status || result.status;
+                const paymentId = result.data?.payment?.id || result.payment?.id || result.paymentId;
+                const paymentMethod = result.data?.payment?.paymentMethod || result.payment?.payment_method_id || paymentMethodId;
                 
                 console.log('[PaymentBrick] 📊 Status do pagamento:', {
                   paymentStatus,
                   isPix,
                   paymentId,
-                  hasPixData: !!(result.payment?.point_of_interaction?.transaction_data || directModeData.payment?.point_of_interaction?.transaction_data)
+                  paymentMethod,
+                  hasPixData: !!(result.data?.mercadopago?.pixQrCode || result.payment?.point_of_interaction?.transaction_data)
                 });
                 
                 switch (paymentStatus) {
                   case 'approved':
                     console.log('[PaymentBrick] ✅ Pagamento aprovado');
-                    onPaymentSuccess({
-                      id: paymentId,
-                      status: 'approved',
-                      status_detail: result.payment?.status_detail,
-                      payment_method_id: result.payment?.payment_method_id,
-                      payment_type_id: isPix ? 'bank_transfer' : 'credit_card',
-                      transaction_amount: result.payment?.transaction_amount || amount,
-                      ...result
-                    });
+                    onPaymentSuccess(result);
                     break;
                     
                   case 'pending':
                     if (isPix && paymentId) {
                       console.log('[PaymentBrick] 📱 PIX detectado - Mostrando Status Screen');
+                      // Para PIX, o backend retorna o QR Code e precisamos mostrar
                       setMercadoPagoPaymentId(paymentId);
                       setShowStatusScreen(true);
                       unmountBrick(containerId);
+                      // Chamar callback de pending com os dados do PIX
+                      if (onPaymentPending) {
+                        onPaymentPending(result);
+                      }
                     } else {
-                      console.log('[PaymentBrick] ⏳ Pagamento pendente (não PIX)');
-                      const pendingResult = {
-                        id: paymentId,
-                        status: 'pending' as const,
-                        status_detail: result.payment?.status_detail,
-                        payment_method_id: result.payment?.payment_method_id,
-                        payment_type_id: 'credit_card',
-                        transaction_amount: result.payment?.transaction_amount || amount,
-                        ...result
-                      };
-                      onPaymentPending?.(pendingResult);
+                      console.log('[PaymentBrick] ⏳ Pagamento pendente');
+                      onPaymentPending?.(result);
                     }
                     break;
                     
