@@ -57,8 +57,17 @@ const ProfileDataSchema = z.object({
   cpf: z.string().regex(/^\d{11}$/, 'CPF deve conter 11 dígitos').optional(),
   phone: z.string().min(10, 'Telefone inválido').optional(),
   bloodType: z.string().optional(),
-  emergencyContact: z.string().min(1, 'Contato de emergência é obrigatório').optional(),
-  medicalInfo: z.string().optional(),
+  emergencyContact: z.object({
+    name: z.string().min(1, 'Nome do contato é obrigatório'),
+    phone: z.string().min(10, 'Telefone do contato inválido'),
+    relationship: z.string().min(1, 'Relação/parentesco é obrigatório')
+  }).optional(),
+  medicalInfo: z.object({
+    allergies: z.array(z.string()).optional(),
+    medications: z.array(z.string()).optional(),
+    conditions: z.array(z.string()).optional(),
+    observations: z.string().optional()
+  }).optional(),
   subscriptionPlan: z.enum(['basic', 'premium']).optional()
 });
 
