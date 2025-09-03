@@ -5,13 +5,15 @@ import { MercadoPagoClient, MercadoPagoPaymentResponse } from '../lib/infrastruc
 import { ProfileService } from '../lib/domain/services/ProfileService';
 import { PaymentRepository } from '../lib/infrastructure/repositories/PaymentRepository.js';
 import { ProfileRepository } from '../lib/infrastructure/repositories/ProfileRepository.js';
-import { QRCodeService } from '../lib/domain/services/QRCodeService';
+import { QRCodeService, IQRCodeGenerator } from '../lib/domain/services/QRCodeService';
 import { Payment } from '../lib/domain/entities/Payment';
 import { PaymentStatus } from '../lib/domain/value-objects/PaymentStatus';
 import { PaymentMethod } from '../lib/domain/value-objects/PaymentMethod.js';
 import { PaymentAmount } from '../lib/domain/value-objects/PaymentAmount.js';
 import { PaymentDescription } from '../lib/domain/value-objects/PaymentDescription.js';
 import { FirestoreClient } from '../lib/infrastructure/firebase/FirestoreClient.js';
+import { IUserRepository } from '../lib/infrastructure/repositories/IUserRepository';
+import { ISubscriptionRepository } from '../lib/infrastructure/repositories/ISubscriptionRepository';
 
 // Schema de validação para o request
 const validatePaymentSchema = z.object({
@@ -101,15 +103,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Inicializar repositórios
       const profileRepository = new ProfileRepository();
       const paymentRepository = new PaymentRepository();
-      // QRCodeService precisa de um generator, por enquanto usar null para evitar erro
-      // TODO: Implementar QRCodeGenerator adequadamente
-      const qrCodeService = new QRCodeService(profileRepository, null as any);
+      // QRCodeService com generator null (será implementado após pagamento aprovado)
+      const qrCodeGenerator: IQRCodeGenerator | null = null;
+      const qrCodeService = new QRCodeService(profileRepository, qrCodeGenerator!);
 
       // Se tem profileData (novo perfil), criar
       if (profileData && !profileId) {
-        // ProfileService precisa de repositórios adicionais
-        // TODO: Implementar repositórios completos
-        const profileService = new ProfileService(profileRepository, null as any, null as any);
+        // ProfileService com repositórios necessários
+        const userRepository: IUserRepository | null = null;
+        const subscriptionRepository: ISubscriptionRepository | null = null;
+        const profileService = new ProfileService(profileRepository, userRepository!, subscriptionRepository!);
         
         console.log('[validate-payment] Criando novo perfil médico...');
         savedProfile = await profileService.createProfile({
