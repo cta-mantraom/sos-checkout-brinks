@@ -282,7 +282,6 @@ export function CheckoutPage() {
             >
               <PaymentBrick
               subscriptionType={selectedPlan}
-              profileId={profileId}  // Para compatibilidade
               profileData={formData ? {  // NOVO: Enviar dados do formulário
                 fullName: formData.name,
                 cpf: formData.cpf.replace(/\D/g, ''),  // Remover formatação

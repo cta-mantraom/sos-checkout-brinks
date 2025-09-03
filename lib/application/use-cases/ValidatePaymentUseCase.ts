@@ -8,9 +8,7 @@ import { PaymentError } from '../../domain/errors/PaymentError.js';
 import { ProfileError } from '../../domain/errors/ProfileError.js';
 import { z } from 'zod';
 import { MercadoPagoClient } from '../../infrastructure/mercadopago/MercadoPagoClient.js';
-import { PaymentAmount } from '../../domain/value-objects/PaymentAmount.js';
-import { PaymentMethod } from '../../domain/value-objects/PaymentMethod.js';
-import { PaymentDescription } from '../../domain/value-objects/PaymentDescription.js';
+// Removidos imports não utilizados dos value objects
 import { IPaymentRepository } from '../../infrastructure/repositories/IPaymentRepository.js';
 
 // Schema de validação para dados de entrada
@@ -44,7 +42,8 @@ const validatePaymentSchema = z.object({
   subscriptionType: z.enum(['basic', 'premium']).optional()
 });
 
-type ValidatePaymentData = z.infer<typeof validatePaymentSchema>;
+// Type extracted from schema - used internally
+// type ValidatePaymentData = z.infer<typeof validatePaymentSchema>;
 
 export interface ValidatePaymentUseCaseResult {
   payment: Payment;
@@ -179,32 +178,50 @@ export class ValidatePaymentUseCase {
           profileId: profileId || profile?.getId() || 'unknown',
           amount: mpPayment.transaction_amount,
           paymentMethodId: mpPayment.payment_method_id,
-          paymentMethod: mpPayment.payment_method_id,
+          paymentMethod: this.mapPaymentMethod(mpPayment.payment_method_id),
           installments: 1,
           description: subscriptionType || 'basic'
         });
+        
+        // Atualizar status do pagamento conforme retorno do MercadoPago
+        payment.updateStatus(paymentStatus);
         
         payment.setMercadoPagoData(mpPayment.id, {
           qrCode: mpPayment.point_of_interaction?.transaction_data?.qr_code || '',
           qrCodeBase64: mpPayment.point_of_interaction?.transaction_data?.qr_code_base64 || ''
         });
         
-        savedPayment = await this.paymentRepository.save(payment);
+        await this.paymentRepository.save(payment);
+        savedPayment = payment;
         console.log('[ValidatePaymentUseCase] Pagamento salvo no banco');
       }
       
       // IMPORTANTE: Se pagamento está pendente (PIX), NÃO salvar perfil!
       // Perfil será criado quando webhook confirmar pagamento
 
-      return {
-        payment: savedPayment || Payment.create({
+      // Se não salvou o pagamento (pendente ou rejeitado), criar para retorno
+      if (!savedPayment) {
+        const tempPayment = Payment.create({
           profileId: profileId || 'pending',
           amount: mpPayment.transaction_amount,
           paymentMethodId: mpPayment.payment_method_id,
-          paymentMethod: mpPayment.payment_method_id,
+          paymentMethod: this.mapPaymentMethod(mpPayment.payment_method_id),
           installments: 1,
           description: subscriptionType || 'basic'
-        }),
+        });
+        
+        // Atualizar status conforme retorno do MercadoPago
+        tempPayment.updateStatus(paymentStatus);
+        tempPayment.setMercadoPagoData(mpPayment.id, {
+          qrCode: mpPayment.point_of_interaction?.transaction_data?.qr_code || '',
+          qrCodeBase64: mpPayment.point_of_interaction?.transaction_data?.qr_code_base64 || ''
+        });
+        
+        savedPayment = tempPayment;
+      }
+      
+      return {
+        payment: savedPayment,
         profile,
         paymentResult,
         qrCodeGenerated,
@@ -236,6 +253,17 @@ export class ValidatePaymentUseCase {
     };
 
     return statusMap[mpStatus] || PaymentStatus.PENDING;
+  }
+  
+  // Método auxiliar para mapear payment_method_id do MercadoPago
+  private mapPaymentMethod(paymentMethodId: string): 'credit_card' | 'debit_card' | 'pix' | 'boleto' {
+    // Mapear IDs do MercadoPago para nossos tipos
+    if (paymentMethodId === 'pix') return 'pix';
+    if (paymentMethodId === 'bolbradesco' || paymentMethodId === 'boleto') return 'boleto';
+    if (paymentMethodId.includes('debito') || paymentMethodId.includes('debit')) return 'debit_card';
+    
+    // Por padrão, assumir cartão de crédito
+    return 'credit_card';
   }
 
   // Método simplificado para obter status

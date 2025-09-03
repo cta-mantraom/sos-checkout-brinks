@@ -1,4 +1,3 @@
-import { Payment } from '../../domain/entities/Payment.js';
 import { IMercadoPagoClient } from '../../domain/services/PaymentService.js';
 
 export interface MercadoPagoConfig {

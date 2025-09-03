@@ -2,18 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SubscriptionType } from '@/schemas/payment';
 import { SUBSCRIPTION_PRICES } from '@/lib/constants/prices';
 
-interface PaymentData {
-  subscriptionType: SubscriptionType;
-  paymentMethod: string;
-  amount: number;
-  installments?: number;
-  payerInfo: {
-    name: string;
-    email: string;
-    cpf: string;
-  };
-  profileId: string;
-}
+// Interface PaymentData removida - não está sendo utilizada
 
 interface PaymentResponse {
   id: string;
